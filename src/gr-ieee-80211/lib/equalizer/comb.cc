@@ -16,6 +16,7 @@
  */
 
 #include "comb.h"
+#include <iostream>
 
 using namespace gr::ieee802_11::equalizer;
 
@@ -57,6 +58,7 @@ void comb::equalize(gr_complex *in, int n, gr_complex *symbols, uint8_t *bits, b
 		} else {
 			d_H[i] = gr_complex(1-alpha, 0) * d_H[i] + gr_complex(alpha, 0) * H;
 		}
+		//std::cout << "CSI at subcarrier  " << i << ": " << d_H[i] << std::endl;
 	}
 
 	int c = 0;
@@ -74,4 +76,8 @@ void comb::equalize(gr_complex *in, int n, gr_complex *symbols, uint8_t *bits, b
 double
 comb::get_snr() {
 	return 42;
+}
+
+gr_complex* comb::get_csi() {
+	return d_H;
 }

@@ -37,6 +37,7 @@ void sta::equalize(gr_complex *in, int n, gr_complex *symbols, uint8_t *bits, bo
 			signal += std::pow(std::abs(d_H[i] + in[i]), 2);
 			d_H[i] += in[i];
 			d_H[i] /= LONG[i] * gr_complex(2, 0);
+			//std::cout << "CSI: " << d_H[i] << std::endl;
 		}
 
 		d_snr = 10 * std::log10(signal / noise / 2);
@@ -85,6 +86,7 @@ void sta::equalize(gr_complex *in, int n, gr_complex *symbols, uint8_t *bits, bo
 				continue;
 			}
 			d_H[i] = gr_complex(1-alpha,0) * d_H[i] + gr_complex(alpha,0) * H_update[i];
+			//std::cout << "CSI at subcarrier  " << i << ": " << d_H[i] << std::endl;
 		}
 	}
 }
@@ -92,4 +94,8 @@ void sta::equalize(gr_complex *in, int n, gr_complex *symbols, uint8_t *bits, bo
 double
 sta::get_snr() {
 	return d_snr;
+}
+
+gr_complex* sta::get_csi() {
+	return d_H;
 }

@@ -54,8 +54,15 @@ void ls::equalize(gr_complex *in, int n, gr_complex *symbols, uint8_t *bits, boo
 			}
 		}
 	}
+	/*for(int i = 0; i < 64; i++) {
+		std::cout << "CSI at subcarrier  " << i << ": " << d_H[i] << std::endl;
+	}*/
 }
 
 double ls::get_snr() {
 	return d_snr;
+}
+
+gr_complex* ls::get_csi() {
+	return d_H;
 }

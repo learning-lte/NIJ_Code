@@ -154,9 +154,10 @@ void insert_tag(uint64_t item, double freq_offset, uint64_t input_item, int o) {
 	frame_counter += 1;
 	const pmt::pmt_t key = pmt::string_to_symbol("wifi_start");
 	const pmt::pmt_t value = pmt::from_double(freq_offset);
+	const pmt::pmt_t value1 = pmt::from_uint64(frame_counter);
 	const pmt::pmt_t srcid = pmt::string_to_symbol(std::to_string(frame_counter));
 	add_item_tag(0, item, key, value, srcid);
-	const pmt::pmt_t value1 = pmt::from_uint64(frame_counter);
+	//add_item_tag(0, item + 1, srcid, pmt::from_uint64(0), srcid);
 	add_item_tag(1, (item - nitems_written(0) + nitems_written(1) + o * (d_samp_fact - 1)), key, value1, srcid);
 	//dout << "SS:Frame Counter: " << frame_counter << "Normal Stream Position: " << nitems_written(0) << "40MHz Stream Position: " << nitems_written(1)  << ", " << (nitems_written(1) + o) << std::endl;
 }

@@ -63,7 +63,8 @@ def main():
     base_path = "/home/nij/GNU/"
     raw_data = scipy.fromfile(open(base_path + "file_sink" + fileName), dtype=scipy.complex64)
     parsed_data = open(base_path + "parsed_data" + fileName + ".txt", "r")
-    finished_data = open("finished_data" + fileName + ".txt", "w")
+    csi_data = open(base_path + "csi_data" + fileName + ".txt").read()
+    finished_data = open(base_path + "finished_data" + fileName + ".txt", "w")
     raw_frame = []
     indiv_frame = []
     total_frames = []
@@ -138,7 +139,7 @@ def main():
                 flag1 = False
                 flag2 = False
                 num_save = 149
-                if (test1 is not None):
+                """if (test1 is not None):
                     for addr in freq_list:
                         if mac_addr == addr[0]:
                             if addr[1] <= num_save:
@@ -146,20 +147,26 @@ def main():
                                 flag2 = True
                             flag1 = True
                     if not flag1:
-                        freq_list.append([mac_addr, 1])
+                        freq_list.append([mac_addr, 1])"""
 
                 # If autocorrelation function returned something (Success!) then save the MAC addr,
-                # globally unique identifier, raw data length, and raw data to array to be written to file
+                # globally unique identifier, raw data length, raw data, and corresponding CSI data to array to be written to file
                 ####test1 is not None and
-                if (test1 is not None and flag2):
+                #if (test1 is not None and flag2):
+                if (test1 is not None):
                     indiv_frame.append(mac_addr)
                     indiv_frame.append(frame_number)
                     # indiv_frame.append(str(uuid.uuid4()))
                     indiv_frame.append(header[1])
                     indiv_frame.append(raw_frame)
+                    linestart = csi_data.find(str(frame_number))
+                    csistart = csi_data.find("|", linestart, len(csi_data))
+                    csiend = csi_data.find("\n", csistart, len(csi_data))
+                    csi_frame = csi_data[csistart:csiend]
+                    indiv_frame.append(csi_frame)
                     total_frames.append(indiv_frame)
                     ###Used for testing
-                    # test_plots(raw_frame, test1)
+                    #test_plots(raw_frame, test1)
 
         last_raw_counter = raw_frame_counter
         raw_frame = []
@@ -176,7 +183,7 @@ def main():
 
     for each in total_frames:
         finished_data.write(
-            str(each[0]) + "|" + str(each[1]) + "|" + str(each[2]) + "|" + str(each[3]).strip("[] ") + "\n")
+            str(each[0]) + "|" + str(each[1]) + "|" + str(each[2]) + "|" + str(each[3]).strip("[] ") + "|" + str(each[4]).strip("[] ") + "\n")
 
     print("Done")
     # Difference should always be less than MAX FRAME SIZE (No Buffer at 20 MHz = 43200)

@@ -52,20 +52,24 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 	const uint8_t *in = (const uint8_t*)input_items[0];
 
 	int i = 0;
-	
-	//////////////////////////////////
-	//pmt::pmt_t d_frame_counter = pmt::string_to_symbol("00");
-	//////////////////////////////////
 
 	std::vector<gr::tag_t> tags;
+	std::vector<gr::tag_t> tags1;
 	const uint64_t nread = this->nitems_read(0);
-
+	
 	//dout << "Decode MAC: input " << ninput_items[0] << std::endl;
 
 	while(i < ninput_items[0]) {
 
 		get_tags_in_range(tags, 0, nread + i, nread + i + 1,
 			pmt::string_to_symbol("wifi_start"));
+			
+		/*get_tags_in_range(tags1, 0, nread + i, nread + i + 1,
+			pmt::string_to_symbol("CSI"));
+			
+		if (tags1.size()){
+			message_port_pub(pmt::mp("out"), pmt::cons(tags1.front().srcid, tags1.front().value));
+		}*/
 
 		if(tags.size()) {
 			if (d_frame_complete == false) {
@@ -107,9 +111,7 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 
 			if(copied == d_frame.n_sym) {
 				dout << "received complete frame - decoding" << std::endl;
-				//////////////////////////////////////
 				decode(d_frame_counter);
-				//////////////////////////////////////
 				in += 48;
 				i++;
 				d_frame_complete = true;
@@ -125,9 +127,8 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 
 	return 0;
 }
-//////////////////////////////////////////
+
 void decode(pmt::pmt_t d_frame_counter) {
-//////////////////////////////////////////
 
 	for(int i = 0; i < d_frame.n_sym * 48; i++) {
 		for(int k = 0; k < d_ofdm.n_bpsc; k++) {
@@ -160,15 +161,8 @@ void decode(pmt::pmt_t d_frame_counter) {
 	dict = pmt::dict_add(dict, pmt::mp("nomfreq"), pmt::from_double(d_nom_freq));
 	dict = pmt::dict_add(dict, pmt::mp("freqofs"), pmt::from_double(d_freq_offset));
 	dict = pmt::dict_add(dict, pmt::mp("dlt"), pmt::from_long(LINKTYPE_IEEE802_11));
-	///////////////////////////////
 	dict = pmt::dict_add(dict, pmt::mp("framecounter"), d_frame_counter);
-	//dout << "Decode Out Frame Received:" << pmt::symbol_to_string(d_frame_counter) << "\n";
-	///////////////////////////////
 	message_port_pub(pmt::mp("out"), pmt::cons(dict, blob));
-	///////////////////////////////
-	//pmt::pmt_t dict5 = pmt::car(pmt::cons(dict, blob));
-	//dout << "NEWDICT" <<  pmt::symbol_to_string(pmt::dict_ref(dict5, pmt::mp("framecounter"), pmt::string_to_symbol("0"))) << "\n";
-	///////////////////////////////
 
 }
 
@@ -249,9 +243,7 @@ private:
 	double d_snr;  // dB
 	double d_nom_freq;  // nominal frequency, Hz
 	double d_freq_offset;  // frequency offset, Hz
-	/////////////////////////////////
 	pmt::pmt_t d_frame_counter; 
-	/////////////////////////////////
 	viterbi_decoder d_decoder;
 
 	uint8_t d_rx_symbols[48 * MAX_SYM];

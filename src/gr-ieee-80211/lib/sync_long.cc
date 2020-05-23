@@ -72,10 +72,10 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 		std::sort(d_tags.begin(), d_tags.end(), gr::tag_t::offset_compare);
 
 		const uint64_t offset = d_tags.front().offset;
-		///////////////////////////////////
 		d_frame_counter = d_tags.front().srcid;
+		//cout << "Trigger Key: " << pmt::symbol_to_string(d_tags.front().key) << std::endl;
+		//cout << "CSI Key: " << pmt::symbol_to_string(d_tags.at(1).key) << std::endl;
 		//dout << "SL: Counter: " << d_frame_counter << std::endl << "Number of tags Detected: " << d_tags.size() << std::endl;
-		///////////////////////////////////
 
 		if(offset > nread) {
 			ninput = offset - nread;

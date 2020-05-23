@@ -80,6 +80,8 @@ private:
 	constellation_64qam::sptr d_64qam;
 
 	static const int interleaver_pattern[48];
+	
+	void send_csi(std::vector<gr_complex> csi_data, int i, pmt::pmt_t frame_counter);
 };
 
 } // namespace ieee802_11

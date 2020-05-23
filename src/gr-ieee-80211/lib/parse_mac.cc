@@ -52,6 +52,35 @@ void parse(pmt::pmt_t msg) {
 	}
 	
 	/////////////////////////////////////////////////
+	//std::cout <<  "IS NOT DICT: "<< not pmt::is_dict(pmt::car(msg)) << std::endl;
+	/*if (not pmt::is_dict(pmt::car(msg))){
+		std::string d_frame_counter = pmt::symbol_to_string(pmt::car(msg));
+		//std::cout << "PM: Frame Counter: " << d_frame_counter << std::endl;
+		uint64_t temp_msg =  to_uint64(pmt::cdr(msg));
+		//std::cout << "PM: CSI ADDRESS: " << temp_msg << std::endl;
+		gr_complex* csi_data = reinterpret_cast<gr_complex*> (temp_msg);
+		int size = sizeof(csi_data)/sizeof(gr_complex);
+		std::cout << "PM: CSI SIZE: " << size << std::endl;
+		
+		std::fstream parsed_data;
+		parsed_data.open("/home/nij/GNU/parsed_data.txt", std::ios::out | std::ios::app);
+		std::string line;
+		if (parsed_data.is_open()){
+			while(getline(parsed_data, line)){
+				if (line.find(d_frame_counter, 0) != std::string::npos){
+					for(int i = 0; i <size; i++){
+						float csi_real = std::real(csi_data[i]);
+						float csi_imag = std::imag(csi_data[i]);
+						line.append(",(" + std::to_string(csi_real) + "+" + std::to_string(csi_imag) + "j)");
+					}
+				}
+			}
+			parsed_data.close();
+		}
+	}
+	
+	else{*/
+		
 	pmt::pmt_t dict = pmt::car(msg);
 	pmt::pmt_t temp = pmt::dict_ref(dict, pmt::mp("framecounter"), pmt::string_to_symbol("0"));
 	std::string d_frame_counter = pmt::symbol_to_string(temp);
@@ -73,26 +102,20 @@ void parse(pmt::pmt_t msg) {
 	dout << "duration: " << HEX(h->duration >> 8) << " " << HEX(h->duration  & 0xff) << std::endl;
 	dout << "frame control: " << HEX(h->frame_control >> 8) << " " << HEX(h->frame_control & 0xff);
 
-        switch((h->frame_control >> 2) & 3) {
+		switch((h->frame_control >> 2) & 3) {
 
 		case 0:
 			dout << " (MANAGEMENT)" << std::endl;
-			//////////////////////////////////////////////////////////////////////////////////
 			parse_management((char*)h, data_len, d_frame_counter);
-			//////////////////////////////////////////////////////////////////////////////////
 			break;
 		case 1:
 			dout << " (CONTROL)" << std::endl;
-			/////////////////////////////////////////////////////////////////////////
 			parse_control((char*)h, data_len, d_frame_counter);
-			/////////////////////////////////////////////////////////////////////////
 			break;
 
 		case 2:
 			dout << " (DATA)" << std::endl;
-			/////////////////////////////////////////////////
 			parse_data((char*)h, data_len, d_frame_counter);
-			/////////////////////////////////////////////////
 			break;
 
 		default:
@@ -110,9 +133,9 @@ void parse(pmt::pmt_t msg) {
 		print_ascii(frame + 26, data_len - 26);
 	}
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void parse_management(char *buf, int length, std::string d_frame_counter) {
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 	mac_header* h = (mac_header*)buf;
 
 	if(length < 24) {
@@ -198,9 +221,9 @@ void parse_management(char *buf, int length, std::string d_frame_counter) {
 
 }
 
-////////////////////////////////////////////////////
+
 void parse_data(char *buf, int length, std::string d_frame_counter) {
-////////////////////////////////////////////////////
+
 	mac_header* h = (mac_header*)buf;
 	if(length < 24) {
 		dout << "too short for a data frame" << std::endl;
@@ -288,9 +311,9 @@ void parse_data(char *buf, int length, std::string d_frame_counter) {
 	pmt::pmt_t pdu = pmt::make_f32vector(lost_frames + 1, fer * 100);
 	message_port_pub(pmt::mp("fer"), pmt::cons( pmt::PMT_NIL, pdu ));
 }
-/////////////////////////////////////////////////////
+
 void parse_control(char *buf, int length, std::string d_frame_counter) {
-/////////////////////////////////////////////////////
+
 	mac_header* h = (mac_header*)buf;
 
 	dout << "Subtype: ";
@@ -336,16 +359,15 @@ void parse_control(char *buf, int length, std::string d_frame_counter) {
 	/////////////////////////////
 
 }
-//////////////////////////////
+
 void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame_counter = "", bool target = false) {
-//////////////////////////////
+
 	if(!d_debug) {
 		return;
 	}
 
 	std::cout << std::setfill('0') << std::hex << std::setw(2);
 	
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	if (target == true){
 		
 		std::ofstream parsed_data;
@@ -364,7 +386,6 @@ void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame
 	parsed_data.close();
 	
 	}
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	for(int i = 0; i < 6; i++) {
 		std::cout << (int)addr[i];

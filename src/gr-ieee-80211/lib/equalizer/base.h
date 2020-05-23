@@ -30,6 +30,7 @@ public:
 	virtual ~base() {};
 	virtual void equalize(gr_complex *in, int n, gr_complex *symbols, uint8_t *bits, boost::shared_ptr<gr::digital::constellation> mod) = 0;
 	virtual double get_snr() = 0;
+	virtual gr_complex* get_csi() = 0;
 
 	static const gr_complex POLARITY[127];
 

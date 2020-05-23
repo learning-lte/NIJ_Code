@@ -56,9 +56,16 @@ void lms::equalize(gr_complex *in, int n, gr_complex *symbols, uint8_t *bits, bo
 			}
 		}
 	}
+	/*for(int i = 0; i < 64; i++) {
+		std::cout << "CSI at subcarrier  " << i << ": " << d_H[i] << std::endl;
+	}*/
 }
 
 double
 lms::get_snr() {
 	return d_snr;
+}
+
+gr_complex* lms::get_csi() {
+	return d_H;
 }
