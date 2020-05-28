@@ -64,12 +64,12 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 		get_tags_in_range(tags, 0, nread + i, nread + i + 1,
 			pmt::string_to_symbol("wifi_start"));
 			
-		/*get_tags_in_range(tags1, 0, nread + i, nread + i + 1,
+		get_tags_in_range(tags1, 0, nread + i, nread + i + 1,
 			pmt::string_to_symbol("CSI"));
 			
 		if (tags1.size()){
 			message_port_pub(pmt::mp("out"), pmt::cons(tags1.front().srcid, tags1.front().value));
-		}*/
+		}
 
 		if(tags.size()) {
 			if (d_frame_complete == false) {

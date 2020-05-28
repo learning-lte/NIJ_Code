@@ -227,7 +227,6 @@ frame_equalizer_impl::general_work (int noutput_items,
 				dict = pmt::dict_add(dict, pmt::mp("freq"), pmt::from_double(d_freq));
 				dict = pmt::dict_add(dict, pmt::mp("freq_offset"), pmt::from_double(d_freq_offset_from_synclong));
 				add_item_tag(0, nitems_written(0) + o, pmt::string_to_symbol("wifi_start"), dict, d_frame_counter);
-				//std::cout << "FE: WF Tag Sent at " << nitems_written(0) + o <<std::endl;
 				send_csi(frame_csi, o, prev_frame_counter);
 				frame_csi.erase(frame_csi.begin(), frame_csi.end() - 2);
 				prev_frame_counter = d_frame_counter;
@@ -349,27 +348,13 @@ frame_equalizer_impl::parse_signal(uint8_t *decoded_bits) {
 	return true;
 }
 void frame_equalizer_impl::send_csi(std::vector<gr_complex> csi_data, int i, pmt::pmt_t frame_counter){
-	
-	std::ofstream csi_file;
-	csi_file.open("/home/nij/GNU/csi_data.txt", std::ios::out | std::ios::app);
-	csi_file << pmt::symbol_to_string(frame_counter) << "|";
-	std::vector<gr_complex>::iterator ptr;
-	for (ptr = csi_data.begin(); ptr < csi_data.end(); ptr++){
-		csi_file << *ptr << ",";
-	}
-	csi_file << std::endl;
 		
-	/*gr_complex csi[csi_data.size() - 2];
-	//std::copy(csi_data.begin(), csi_data.end() - 2, csi);
-	for (int k; k < csi_data.size() -2; k++){
-		csi[k] = csi_data[k];
-	}
+	gr_complex csi[csi_data.size() - 2];
+	std::copy(csi_data.begin(), csi_data.end() - 2, csi);
 	uintptr_t temp = reinterpret_cast<uintptr_t>(csi);
-	std::cout << "FE: CSI SIZE: " << sizeof(csi) << std::endl;
-	//std::cout << "FE: CSI ADDRESS1: " << csi << std::endl;
-	//std::cout << "FE: CSI ADDRESS2: " << temp << std::endl;
+	pmt::pmt_t value = pmt::cons(pmt::from_uint64(temp), pmt::from_uint64(csi_data.size() - 2));
 	
-	add_item_tag(0, nitems_written(0) + i + 1, pmt::string_to_symbol("CSI"), pmt::from_uint64(temp), frame_counter);*/
+	add_item_tag(0, nitems_written(0) + i + 1, pmt::string_to_symbol("CSI"), value, frame_counter);
 }
 
 const int
