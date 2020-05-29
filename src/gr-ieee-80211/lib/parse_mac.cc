@@ -26,6 +26,7 @@ using namespace gr::ieee802_11;
 std::fstream parsed_data("/home/nij/GNU/parsed_data.txt", std::ios::app);
 std::string last_frame = "";
 bool csi_added = false;
+gr_complex* last_frame_addr;
 
 class parse_mac_impl : public parse_mac {
 
@@ -60,12 +61,13 @@ void parse(pmt::pmt_t msg) {
 		std::string d_frame_counter = pmt::symbol_to_string(pmt::car(msg));
 		msg = pmt::cdr(msg);
 		uint64_t temp_msg =  to_uint64(pmt::car(msg));
-		uint64_t size = to_uint64(pmt::cdr(msg));
+		uint64_t csi_size = to_uint64(pmt::cdr(msg));
 		gr_complex* csi_data = reinterpret_cast<gr_complex*> (temp_msg);
 		
 		if (d_frame_counter == last_frame and not csi_added){
-			for(int i = 0; i < size; i++){
-				parsed_data <<  "," << csi_data[i];
+			parsed_data << "|";
+			for(int i = 0; i < csi_size; i++){
+				parsed_data <<  csi_data[i] << ";";
 			}
 			parsed_data << std::endl;
 			csi_added = true;
@@ -77,6 +79,9 @@ void parse(pmt::pmt_t msg) {
 		pmt::pmt_t dict = pmt::car(msg);
 		pmt::pmt_t temp = pmt::dict_ref(dict, pmt::mp("framecounter"), pmt::string_to_symbol("0"));
 		std::string d_frame_counter = pmt::symbol_to_string(temp);
+		uint64_t raw_temp = pmt::to_uint64(pmt::dict_ref(dict, pmt::mp("raw_data"), pmt::from_uint64(0)));
+		gr_complex* raw_addr = reinterpret_cast<gr_complex*> (raw_temp);
+		uint64_t raw_size = pmt::to_uint64(pmt::dict_ref(dict, pmt::mp("raw_size"), pmt::from_uint64(0)));
 
 		msg = pmt::cdr(msg);
 		int data_len = pmt::blob_length(msg);
@@ -98,16 +103,16 @@ void parse(pmt::pmt_t msg) {
 
 			case 0:
 				dout << " (MANAGEMENT)" << std::endl;
-				parse_management((char*)h, data_len, d_frame_counter);
+				parse_management((char*)h, data_len, d_frame_counter, raw_addr, raw_size);
 				break;
 			case 1:
 				dout << " (CONTROL)" << std::endl;
-				parse_control((char*)h, data_len, d_frame_counter);
+				parse_control((char*)h, data_len, d_frame_counter, raw_addr, raw_size);
 				break;
 
 			case 2:
 				dout << " (DATA)" << std::endl;
-				parse_data((char*)h, data_len, d_frame_counter);
+				parse_data((char*)h, data_len, d_frame_counter, raw_addr, raw_size);
 				break;
 
 			default:
@@ -127,7 +132,7 @@ void parse(pmt::pmt_t msg) {
 	}
 }
 
-void parse_management(char *buf, int length, std::string d_frame_counter) {
+void parse_management(char *buf, int length, std::string d_frame_counter, gr_complex* raw_addr, uint64_t raw_size) {
 
 	mac_header* h = (mac_header*)buf;
 
@@ -205,17 +210,17 @@ void parse_management(char *buf, int length, std::string d_frame_counter) {
 	dout << "seq nr: " << int(h->seq_nr >> 4) << std::endl;
 	dout << "mac 1: ";
 	////////////////////////////////////////////////////////////////////////////////////////
-	print_mac_address(h->addr1, true, d_frame_counter, false);
+	print_mac_address(h->addr1, true, d_frame_counter, false, raw_addr, raw_size);
 	dout << "mac 2: ";
-	print_mac_address(h->addr2, true, d_frame_counter, true);
+	print_mac_address(h->addr2, true, d_frame_counter, true, raw_addr, raw_size);
 	dout << "mac 3: ";
-	print_mac_address(h->addr3, true, d_frame_counter, false);
+	print_mac_address(h->addr3, true, d_frame_counter, false, raw_addr, raw_size);
 	///////////////////////////////////////////////////////////////////////////////////////
 
 }
 
 
-void parse_data(char *buf, int length, std::string d_frame_counter) {
+void parse_data(char *buf, int length, std::string d_frame_counter, gr_complex* raw_addr, uint64_t raw_size) {
 
 	mac_header* h = (mac_header*)buf;
 	if(length < 24) {
@@ -281,11 +286,11 @@ void parse_data(char *buf, int length, std::string d_frame_counter) {
 	int seq_no = int(h->seq_nr >> 4);
 	dout << "seq nr: " << seq_no << std::endl;
 	dout << "mac 1: ";
-	print_mac_address(h->addr1, true, d_frame_counter, false);
+	print_mac_address(h->addr1, true, d_frame_counter, false, raw_addr, raw_size);
 	dout << "mac 2: ";
-	print_mac_address(h->addr2, true, d_frame_counter, true);
+	print_mac_address(h->addr2, true, d_frame_counter, true, raw_addr, raw_size);
 	dout << "mac 3: ";
-	print_mac_address(h->addr3, true, d_frame_counter, false);
+	print_mac_address(h->addr3, true, d_frame_counter, false, raw_addr, raw_size);
 
 	float lost_frames = seq_no - d_last_seq_no - 1;
 	if(lost_frames  < 0)
@@ -303,7 +308,7 @@ void parse_data(char *buf, int length, std::string d_frame_counter) {
 	message_port_pub(pmt::mp("fer"), pmt::cons( pmt::PMT_NIL, pdu ));
 }
 
-void parse_control(char *buf, int length, std::string d_frame_counter) {
+void parse_control(char *buf, int length, std::string d_frame_counter, gr_complex* raw_addr, uint64_t raw_size) {
 
 	mac_header* h = (mac_header*)buf;
 
@@ -343,21 +348,20 @@ void parse_control(char *buf, int length, std::string d_frame_counter) {
 	dout << std::endl;
 
 	dout << "RA: ";
-	print_mac_address(h->addr1, true, d_frame_counter, false);
+	print_mac_address(h->addr1, true, d_frame_counter, false, raw_addr, raw_size);
 	dout << "TA: ";
-	print_mac_address(h->addr2, true, d_frame_counter, true);
+	print_mac_address(h->addr2, true, d_frame_counter, true, raw_addr, raw_size);
 
 }
 
-void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame_counter = "", bool target = false) {
+void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame_counter = "", bool target = false, gr_complex* raw_addr = NULL, uint64_t raw_size = 0) {
 
 	if(!d_debug) {
 		return;
 	}
-
 	std::cout << std::setfill('0') << std::hex << std::setw(2);
 	
-	if (target == true){
+	if (target == true and d_frame_counter != last_frame and raw_addr != last_frame_addr){
 		
 		parsed_data << std::setfill('0') << std::hex << std::setw(2);
 	
@@ -369,10 +373,15 @@ void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame
 		}
 		
 	parsed_data << std::dec;
-	parsed_data << "," << d_frame_counter;
-	last_frame = d_frame_counter;
-	csi_added = false;
+	parsed_data << "|" << d_frame_counter << "|";
+	//std::cout << "PM: Raw Data: " << raw_addr[0]  << ", " << d_frame_counter << "," << raw_addr << std::endl;
+	for(int i = 0; i < raw_size; i++){
+		parsed_data <<  raw_addr[i] << ";";
+	}
 	
+	last_frame = d_frame_counter;
+	last_frame_addr = raw_addr;
+	csi_added = false;
 	}
 
 	for(int i = 0; i < 6; i++) {

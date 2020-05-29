@@ -161,7 +161,10 @@ void decode(pmt::pmt_t d_frame_counter) {
 	dict = pmt::dict_add(dict, pmt::mp("nomfreq"), pmt::from_double(d_nom_freq));
 	dict = pmt::dict_add(dict, pmt::mp("freqofs"), pmt::from_double(d_freq_offset));
 	dict = pmt::dict_add(dict, pmt::mp("dlt"), pmt::from_long(LINKTYPE_IEEE802_11));
-	dict = pmt::dict_add(dict, pmt::mp("framecounter"), d_frame_counter);
+	dict = pmt::dict_add(dict, pmt::mp("framecounter"), pmt::dict_ref(d_frame_counter, pmt::mp("framecounter"), pmt::string_to_symbol("0")));
+	dict = pmt::dict_add(dict, pmt::mp("raw_data"), pmt::dict_ref(d_frame_counter, pmt::mp("raw_data"), pmt::from_uint64(0)));
+	dict = pmt::dict_add(dict, pmt::mp("raw_size"), pmt::dict_ref(d_frame_counter, pmt::mp("raw_size"), pmt::from_uint64(0)));
+
 	message_port_pub(pmt::mp("out"), pmt::cons(dict, blob));
 
 }

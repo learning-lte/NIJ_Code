@@ -229,7 +229,7 @@ frame_equalizer_impl::general_work (int noutput_items,
 				add_item_tag(0, nitems_written(0) + o, pmt::string_to_symbol("wifi_start"), dict, d_frame_counter);
 				send_csi(frame_csi, o, prev_frame_counter);
 				frame_csi.erase(frame_csi.begin(), frame_csi.end() - 2);
-				prev_frame_counter = d_frame_counter;
+				prev_frame_counter = pmt::dict_ref(d_frame_counter, pmt::mp("framecounter"), pmt::string_to_symbol("0"));
 			}
 		}
 

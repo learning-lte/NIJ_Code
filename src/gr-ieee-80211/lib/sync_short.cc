@@ -25,6 +25,7 @@ using namespace gr::ieee802_11;
 static const int MIN_GAP = 480;
 static const int MAX_SAMPLES = 540 * 80;
 int frame_counter = 0;
+std::vector<gr_complex> d_raw_vec;
 
 class sync_short_impl : public sync_short {
 
@@ -121,6 +122,7 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 			out[o] = in[o] * exp(gr_complex(0, -d_freq_offset * d_copied));
 			for (int j = 0; j < d_samp_fact; j++){
 				out1[o * d_samp_fact + j] = in_delayed[o * d_samp_fact + j];
+				d_raw_vec.push_back(in_delayed[o * d_samp_fact + j]);
 			}
 			o++;
 			d_copied++;
@@ -131,7 +133,6 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 		}
 
 		//dout << "SHORT copied " << o << " SHORT copied buffer " << (o1 + o*d_samp_fact) << std::endl;
-		//dout << "Number Written 20: " << nitems_written(0) << " Number Written 40: " << nitems_written(1) << std::endl;
 		dout << "Number Read 20: " << nitems_read(0) << " Number Read 40: " << nitems_read(3) << std::endl;
 
 		consume_each(o);
@@ -152,14 +153,21 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 void insert_tag(uint64_t item, double freq_offset, uint64_t input_item, int o) {
 	mylog(boost::format("frame start at in: %2% out: %1% out40: %3%") % item % input_item % nitems_read(3));
 	frame_counter += 1;
+	gr_complex raw_arr[d_raw_vec.size()];
+	std::copy(d_raw_vec.begin(), d_raw_vec.end(), raw_arr);
+	uintptr_t temp = reinterpret_cast<uintptr_t>(raw_arr);
+	uint64_t raw_size = static_cast<uint64_t>(d_raw_vec.size());
 	const pmt::pmt_t key = pmt::string_to_symbol("wifi_start");
 	const pmt::pmt_t value = pmt::from_double(freq_offset);
 	const pmt::pmt_t value1 = pmt::from_uint64(frame_counter);
-	const pmt::pmt_t srcid = pmt::string_to_symbol(std::to_string(frame_counter));
+	pmt::pmt_t srcid = pmt::make_dict();
+	srcid = pmt::dict_add(srcid, pmt::mp("framecounter"), pmt::string_to_symbol(std::to_string(frame_counter)));
+	srcid = pmt::dict_add(srcid, pmt::mp("raw_data"), pmt::from_uint64(temp));
+	srcid = pmt::dict_add(srcid, pmt::mp("raw_size"), pmt::from_uint64(raw_size));
 	add_item_tag(0, item, key, value, srcid);
-	//add_item_tag(0, item + 1, srcid, pmt::from_uint64(0), srcid);
 	add_item_tag(1, (item - nitems_written(0) + nitems_written(1) + o * (d_samp_fact - 1)), key, value1, srcid);
-	//dout << "SS:Frame Counter: " << frame_counter << "Normal Stream Position: " << nitems_written(0) << "40MHz Stream Position: " << nitems_written(1)  << ", " << (nitems_written(1) + o) << std::endl;
+	d_raw_vec.clear();
+	std::cout << "SS: Raw Data: " << raw_arr[0]  << "," << frame_counter << "," << raw_arr << std::endl;
 }
 
 
