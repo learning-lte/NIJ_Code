@@ -85,6 +85,8 @@ def main():
     last_frame_number = 0
     start_num = 0
     freq_list = []
+    num_save = 3000
+    curr_save = 0
 
     for header in header_data:
 
@@ -124,7 +126,7 @@ def main():
             elif (frame_number > raw_frame_counter):
                 parsed_data.seek(last_pos)
                 index += header[1]
-            elif (start_num == 100 or mac_addr == "00:0:0:0:0:0"):
+            elif (start_num <= 10 or mac_addr == "00:0:0:0:0:0" or header[1] < 10000):
                 start_num += 1
                 index += header[1]
             else:
@@ -133,14 +135,20 @@ def main():
                 for each_item in range(header[1]):
                     raw_frame.append(raw_data[index + each_item])
                 # Calls autocorrelation function and increments index for raw binary file
-                test1 = autoCorMatch(raw_frame)
+                #test1 = autoCorMatch(raw_frame)
                 index += header[1]
                 # Used to ensure there is not more than 100 frames captured from each device
                 flag1 = False
                 flag2 = False
-                num_save = 149
-                """if (test1 is not None):
-                    for addr in freq_list:
+                #if (test1 is not None):
+                if (mac_addr == "f4:71:90:a1:d1:2c"):
+                    if (curr_save < num_save):
+                        flag2 = True
+                        curr_save += 1
+                    else:
+
+                        break
+                    """for addr in freq_list:
                         if mac_addr == addr[0]:
                             if addr[1] <= num_save:
                                 addr[1] += 1
@@ -153,14 +161,14 @@ def main():
                 # globally unique identifier, raw data length, raw data, and corresponding CSI data to array to be written to file
                 ####test1 is not None and
                 #if (test1 is not None and flag2):
-                if (test1 is not None):
+                if (flag2):
                     indiv_frame.append(mac_addr)
-                    indiv_frame.append(frame_number)
-                    # indiv_frame.append(str(uuid.uuid4()))
+                    #indiv_frame.append(frame_number)
+                    indiv_frame.append(str(uuid.uuid4()))
                     indiv_frame.append(header[1])
                     indiv_frame.append(raw_frame)
                     linestart = csi_data.find(str(frame_number))
-                    csistart = csi_data.find("|", linestart, len(csi_data))
+                    csistart = csi_data.find("|", linestart, len(csi_data)) + 1
                     csiend = csi_data.find("\n", csistart, len(csi_data))
                     csi_frame = csi_data[csistart:csiend]
                     indiv_frame.append(csi_frame)
@@ -187,7 +195,7 @@ def main():
 
     print("Done")
     # Difference should always be less than MAX FRAME SIZE (No Buffer at 20 MHz = 43200)
-    print("Index length:", index, "Actual length:", len(raw_data), "Difference: ", len(raw_data) - index)
+    print("Frames in File: ", len(total_frames))
     print(freq_list)
 
     finished_data.close()

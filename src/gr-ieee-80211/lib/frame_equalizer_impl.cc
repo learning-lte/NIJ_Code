@@ -355,7 +355,7 @@ void frame_equalizer_impl::send_csi(std::vector<gr_complex> csi_data, int i, pmt
 	csi_file << pmt::symbol_to_string(frame_counter) << "|";
 	std::vector<gr_complex>::iterator ptr;
 	for (ptr = csi_data.begin(); ptr < csi_data.end(); ptr++){
-		csi_file << *ptr << ",";
+		csi_file << std::showpos << "(" << std::real(*ptr) << std::imag(*ptr) << "j), ";
 	}
 	csi_file << std::endl;
 		

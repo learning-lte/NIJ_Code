@@ -81,9 +81,8 @@ list(APPEND include_sources
     sync_long.h
     sync_short.h
 )
-
 install(
 	FILES ${include_sources}
-	DESTINATION ${GR_INCLUDE_DIR}/gnuradio/ieee802_11
+    DESTINATION ${GR_INCLUDE_DIR}/gnuradio/ieee802_11
 	COMPONENT "ieee802_11_devel"
 )

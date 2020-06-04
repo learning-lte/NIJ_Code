@@ -21,6 +21,7 @@
 #include <gnuradio/block_detail.h>
 #include <string>
 using namespace gr::ieee802_11;
+uint64_t frames_captured = 0;
 
 class parse_mac_impl : public parse_mac {
 
@@ -217,6 +218,7 @@ void parse_management(char *buf, int length, std::string d_frame_counter) {
 	print_mac_address(h->addr2, true, d_frame_counter, true);
 	dout << "mac 3: ";
 	print_mac_address(h->addr3, true, d_frame_counter, false);
+	dout << "Number of Frames Captured: " << frames_captured << std::endl;
 	///////////////////////////////////////////////////////////////////////////////////////
 
 }
@@ -294,6 +296,7 @@ void parse_data(char *buf, int length, std::string d_frame_counter) {
 	print_mac_address(h->addr2, true, d_frame_counter, true);
 	dout << "mac 3: ";
 	print_mac_address(h->addr3, true, d_frame_counter, false);
+	dout << "Number of Frames Captured: " << frames_captured << std::endl;
 	/////////////////////////////////////////////////
 
 	float lost_frames = seq_no - d_last_seq_no - 1;
@@ -356,6 +359,7 @@ void parse_control(char *buf, int length, std::string d_frame_counter) {
 	print_mac_address(h->addr1, true, d_frame_counter, false);
 	dout << "TA: ";
 	print_mac_address(h->addr2, true, d_frame_counter, true);
+	dout << "Number of Frames Captured: " << frames_captured << std::endl;
 	/////////////////////////////
 
 }
@@ -370,21 +374,36 @@ void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame
 	
 	if (target == true){
 		
+		std::stringstream mac_addr;
+		mac_addr << std::setfill('0') << std::hex << std::setw(2);
+	
+		for(int i = 0; i < 6; i++) {
+		mac_addr << (int)addr[i];
+			if(i != 5) {
+				mac_addr << ":";
+			}
+		}
+	/*
+	"00:8:22:34:bc:fb"   <======Changes on Reboot. Check in phone
+	"f4:71:90:a1:d1:2c" 
+	"96:e2:bd:d4:ba:87"<=======
+	"68:c4:4d:97:89:9e"
+	"e8:3e:b6:3d:1c:c9"
+	"d0:13:fd:63:63:87"
+	"e0:5f:45:73:3d:f1"
+	"f0:79:60:7d:a2:12"
+	"a0:d7:95:1f:75:f7"
+	*/
+	if (mac_addr.str() == "f4:71:90:a1:d1:2c" ){
 		std::ofstream parsed_data;
 		parsed_data.open("/home/nij/GNU/parsed_data.txt", std::ios::out | std::ios::app);
 		parsed_data << std::setfill('0') << std::hex << std::setw(2);
-	
-		for(int i = 0; i < 6; i++) {
-		parsed_data << (int)addr[i];
-			if(i != 5) {
-				parsed_data << ":";
-			}
-		}
-		
-	parsed_data << std::dec;
-	parsed_data << "," << d_frame_counter << "\n";
-	parsed_data.close();
-	
+		parsed_data << mac_addr.str();
+		parsed_data << std::dec;
+		parsed_data << "," << d_frame_counter << "\n";
+		parsed_data.close();
+		frames_captured ++;
+	}
 	}
 
 	for(int i = 0; i < 6; i++) {
