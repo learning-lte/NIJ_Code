@@ -62,8 +62,6 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 	const gr_complex *in_delayed = (const gr_complex*)input_items[1];
 	gr_complex *out = (gr_complex*)output_items[0];
 
-	//dout << "LONG ninput[0] " << ninput_items[0] << "   ninput[1] " << ninput_items[1] << "  noutput " << noutput << "   state " << d_state << std::endl;
-
 	int ninput = std::min(std::min(ninput_items[0], ninput_items[1]), 8192);
 
 	const uint64_t nread = nitems_read(0);
@@ -73,9 +71,6 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 
 		const uint64_t offset = d_tags.front().offset;
 		d_frame_counter = d_tags.front().srcid;
-		//cout << "Trigger Key: " << pmt::symbol_to_string(d_tags.front().key) << std::endl;
-		//cout << "CSI Key: " << pmt::symbol_to_string(d_tags.at(1).key) << std::endl;
-		//dout << "SL: Counter: " << d_frame_counter << std::endl << "Number of tags Detected: " << d_tags.size() << std::endl;
 
 		if(offset > nread) {
 			ninput = offset - nread;
@@ -108,7 +103,7 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 
 			if(d_offset == SYNC_LENGTH) {
 				search_frame_start();
-				mylog(boost::format("LONG: frame start at %1%") % d_frame_start);
+				mylog(boost::format("LONG: frame start at %1% for frame %2%, Number of items in input: %3%, Where Tag is in current ninput: %4%, D Offset: %5%") % d_frame_start % pmt::symbol_to_string(d_frame_counter) % ninput % (nitems_read(0) - (uint64_t) d_tags.front().offset)%d_offset);
 				d_offset = 0;
 				d_count = 0;
 				d_state = COPY;
@@ -128,12 +123,7 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 				add_item_tag(0, nitems_written(0),
 						pmt::string_to_symbol("wifi_start"),
 						pmt::from_double(d_freq_offset_short - d_freq_offset),
-						/////////
 						d_frame_counter);
-						/////////
-				////////////
-				//dout << "SL: Frame Counter: " << d_frame_counter << " Tag absolute offset: " << nitems_written(0) << std::endl;
-				/////////////
 			}
 
 			if(rel >= 0 && (rel < 128 || ((rel - 128) % 80) > 15)) {

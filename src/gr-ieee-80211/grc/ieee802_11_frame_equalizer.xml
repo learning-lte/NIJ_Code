@@ -5,10 +5,18 @@
 	<key>ieee802_11_frame_equalizer</key>
 	<category>[IEEE802.11]</category>
 	<import>import ieee802_11</import>
-	<make>ieee802_11.frame_equalizer($algo, $freq, $bw, $log, $debug)</make>
+	<make>ieee802_11.frame_equalizer($algo, $freq, $bw, $log, $debug, $rec_csi, $file)</make>
 	<callback>set_algorithm($algo)</callback>
 	<callback>set_frequency($freq)</callback>
 	<callback>set_bandwidth($bw)</callback>
+	<callback>open($file)</callback>
+
+	<param>
+		<name>CSI File Path</name>
+		<key>file</key>
+		<value></value>
+		<type>file_save</type>
+	</param>
 
 	<param>
 		<name>Algorithm</name>
@@ -67,6 +75,22 @@
 	<param>
 		<name>Debug</name>
 		<key>debug</key>
+		<value>False</value>
+		<type>bool</type>
+
+		<option>
+			<name>Enable</name>
+			<key>True</key>
+		</option>
+		<option>
+			<name>Disable</name>
+			<key>False</key>
+		</option>
+	</param>
+
+	<param>
+		<name>Record CSI</name>
+		<key>rec_csi</key>
 		<value>False</value>
 		<type>bool</type>
 

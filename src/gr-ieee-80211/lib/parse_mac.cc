@@ -27,12 +27,12 @@ class parse_mac_impl : public parse_mac {
 
 public:
 
-parse_mac_impl(bool log, bool debug) :
+parse_mac_impl(bool log, bool debug, const std::string& mac, const std::string& filename) :
 		block("parse_mac",
 				gr::io_signature::make(0, 0, 0),
 				gr::io_signature::make(0, 0, 0)),
 		d_log(log), d_last_seq_no(-1),
-		d_debug(debug) {
+		d_debug(debug), d_mac(mac), d_filename(filename) {
 
 	message_port_register_in(pmt::mp("in"));
 	set_msg_handler(pmt::mp("in"), boost::bind(&parse_mac_impl::parse, this, _1));
@@ -51,41 +51,10 @@ void parse(pmt::pmt_t msg) {
 	} else if(pmt::is_symbol(msg)) {
 		return;
 	}
-	
-	/////////////////////////////////////////////////
-	//std::cout <<  "IS NOT DICT: "<< not pmt::is_dict(pmt::car(msg)) << std::endl;
-	/*if (not pmt::is_dict(pmt::car(msg))){
-		std::string d_frame_counter = pmt::symbol_to_string(pmt::car(msg));
-		//std::cout << "PM: Frame Counter: " << d_frame_counter << std::endl;
-		uint64_t temp_msg =  to_uint64(pmt::cdr(msg));
-		//std::cout << "PM: CSI ADDRESS: " << temp_msg << std::endl;
-		gr_complex* csi_data = reinterpret_cast<gr_complex*> (temp_msg);
-		int size = sizeof(csi_data)/sizeof(gr_complex);
-		std::cout << "PM: CSI SIZE: " << size << std::endl;
-		
-		std::fstream parsed_data;
-		parsed_data.open("/home/nij/GNU/parsed_data.txt", std::ios::out | std::ios::app);
-		std::string line;
-		if (parsed_data.is_open()){
-			while(getline(parsed_data, line)){
-				if (line.find(d_frame_counter, 0) != std::string::npos){
-					for(int i = 0; i <size; i++){
-						float csi_real = std::real(csi_data[i]);
-						float csi_imag = std::imag(csi_data[i]);
-						line.append(",(" + std::to_string(csi_real) + "+" + std::to_string(csi_imag) + "j)");
-					}
-				}
-			}
-			parsed_data.close();
-		}
-	}
-	
-	else{*/
 		
 	pmt::pmt_t dict = pmt::car(msg);
 	pmt::pmt_t temp = pmt::dict_ref(dict, pmt::mp("framecounter"), pmt::string_to_symbol("0"));
 	std::string d_frame_counter = pmt::symbol_to_string(temp);
-	//////////////////////////////////////////////////
 
 	msg = pmt::cdr(msg);
 	int data_len = pmt::blob_length(msg);
@@ -383,27 +352,15 @@ void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame
 				mac_addr << ":";
 			}
 		}
-	/*
-	"00:8:22:34:bc:fb"   <======Changes on Reboot. Check in phone
-	"f4:71:90:a1:d1:2c" 
-	"96:e2:bd:d4:ba:87"<=======
-	"68:c4:4d:97:89:9e"
-	"e8:3e:b6:3d:1c:c9"
-	"d0:13:fd:63:63:87"
-	"e0:5f:45:73:3d:f1"
-	"f0:79:60:7d:a2:12"
-	"a0:d7:95:1f:75:f7"
-	*/
-	if (mac_addr.str() == "f4:71:90:a1:d1:2c" ){
-		std::ofstream parsed_data;
-		parsed_data.open("/home/nij/GNU/parsed_data.txt", std::ios::out | std::ios::app);
-		parsed_data << std::setfill('0') << std::hex << std::setw(2);
-		parsed_data << mac_addr.str();
-		parsed_data << std::dec;
-		parsed_data << "," << d_frame_counter << "\n";
-		parsed_data.close();
-		frames_captured ++;
-	}
+	
+		if (!d_mac.empty()){
+			if (mac_addr.str()  == d_mac){
+				save_parsed(d_frame_counter, mac_addr.str());
+			}
+		}
+		else{
+			save_parsed(d_frame_counter, mac_addr.str());
+		}
 	}
 
 	for(int i = 0; i < 6; i++) {
@@ -418,6 +375,29 @@ void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame
 	if(new_line) {
 		std::cout << std::endl;
 	}
+}
+
+
+	/*List of Test Mac Addresses
+	"00:8:22:34:bc:fb"   <======Changes on Reboot. Check in phone
+	"f4:71:90:a1:d1:2c" 
+	"96:e2:bd:d4:ba:87"<=======
+	"68:c4:4d:97:89:9e"
+	"e8:3e:b6:3d:1c:c9"
+	"d0:13:fd:63:63:87"
+	"e0:5f:45:73:3d:f1"
+	"f0:79:60:7d:a2:12"
+	"a0:d7:95:1f:75:f7"
+	*/ 
+void save_parsed(std::string d_frame_counter, std::string mac_addr){
+	std::ofstream parsed_data;
+	parsed_data.open(d_filename, std::ios::out | std::ios::app);
+	parsed_data << std::setfill('0') << std::hex << std::setw(2);
+	parsed_data << mac_addr;
+	parsed_data << std::dec;
+	parsed_data << "," << d_frame_counter << "\n";
+	parsed_data.close();
+	frames_captured ++;
 }
 
 void print_ascii(char* buf, int length) {
@@ -435,12 +415,14 @@ void print_ascii(char* buf, int length) {
 private:
 	bool d_log;
 	bool d_debug;
+	const std::string d_mac;
+	const std::string d_filename;
 	int d_last_seq_no;
 };
 
 parse_mac::sptr
-parse_mac::make(bool log, bool debug) {
-	return gnuradio::get_initial_sptr(new parse_mac_impl(log, debug));
+parse_mac::make(bool log, bool debug, const std::string& mac, const std::string& filename) {
+	return gnuradio::get_initial_sptr(new parse_mac_impl(log, debug, mac, filename));
 }
 
 

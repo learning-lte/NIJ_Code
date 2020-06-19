@@ -30,7 +30,7 @@ class frame_equalizer_impl : virtual public frame_equalizer
 {
 
 public:
-	frame_equalizer_impl(Equalizer algo, double freq, double bw, bool log, bool debug);
+	frame_equalizer_impl(Equalizer algo, double freq, double bw, bool log, bool debug, bool rec_csi, const std::string& filename);
 	~frame_equalizer_impl();
 
 	void set_algorithm(Equalizer algo);
@@ -55,6 +55,8 @@ private:
 	std::vector<gr::tag_t> tags;
 	bool d_debug;
 	bool d_log;
+	bool d_rec_csi;
+	const std::string& d_filename;
 	int  d_current_symbol;
 	viterbi_decoder d_decoder;
 

@@ -28,21 +28,21 @@ namespace gr {
 namespace ieee802_11 {
 
 frame_equalizer::sptr
-frame_equalizer::make(Equalizer algo, double freq, double bw, bool log, bool debug) {
+frame_equalizer::make(Equalizer algo, double freq, double bw, bool log, bool debug, bool rec_csi, const std::string& filename) {
 	return gnuradio::get_initial_sptr
-		(new frame_equalizer_impl(algo, freq, bw, log, debug));
+		(new frame_equalizer_impl(algo, freq, bw, log, debug, rec_csi, filename));
 }
 
 pmt::pmt_t d_frame_counter = pmt::string_to_symbol("0"); 
 pmt::pmt_t prev_frame_counter = pmt::string_to_symbol("0");
 
-frame_equalizer_impl::frame_equalizer_impl(Equalizer algo, double freq, double bw, bool log, bool debug) :
+frame_equalizer_impl::frame_equalizer_impl(Equalizer algo, double freq, double bw, bool log, bool debug, bool rec_csi, const std::string& filename) :
 	gr::block("frame_equalizer",
 			gr::io_signature::make(1, 1, 64 * sizeof(gr_complex)),
 			gr::io_signature::make(1, 1, 48)),
 	d_current_symbol(0), d_log(log), d_debug(debug), d_equalizer(NULL),
 	d_freq(freq), d_bw(bw), d_frame_bytes(0), d_frame_symbols(0),
-	d_freq_offset_from_synclong(0.0) {
+	d_freq_offset_from_synclong(0.0), d_rec_csi(rec_csi), d_filename(filename) {
 
 	message_port_register_out(pmt::mp("symbols"));
 
@@ -210,9 +210,11 @@ frame_equalizer_impl::general_work (int noutput_items,
 		d_equalizer->equalize(current_symbol, d_current_symbol,
 				symbols, out + o * 48, d_frame_mod);
 		
-		gr_complex *d_H = d_equalizer->get_csi();
-		for (int count = 0; count < 64; count++){
-			frame_csi.push_back(d_H[count]);
+		if (d_rec_csi){
+			gr_complex *d_H = d_equalizer->get_csi();
+			for (int count = 0; count < 64; count++){
+				frame_csi.push_back(d_H[count]);
+			}
 		}
 
 		// signal field
@@ -228,9 +230,11 @@ frame_equalizer_impl::general_work (int noutput_items,
 				dict = pmt::dict_add(dict, pmt::mp("freq_offset"), pmt::from_double(d_freq_offset_from_synclong));
 				add_item_tag(0, nitems_written(0) + o, pmt::string_to_symbol("wifi_start"), dict, d_frame_counter);
 				//std::cout << "FE: WF Tag Sent at " << nitems_written(0) + o <<std::endl;
-				send_csi(frame_csi, o, prev_frame_counter);
-				frame_csi.erase(frame_csi.begin(), frame_csi.end() - 2);
-				prev_frame_counter = d_frame_counter;
+				if (d_rec_csi){
+					send_csi(frame_csi, o, prev_frame_counter);
+					frame_csi.erase(frame_csi.begin(), frame_csi.end() - 2);
+					prev_frame_counter = d_frame_counter;
+				}
 			}
 		}
 
@@ -351,25 +355,13 @@ frame_equalizer_impl::parse_signal(uint8_t *decoded_bits) {
 void frame_equalizer_impl::send_csi(std::vector<gr_complex> csi_data, int i, pmt::pmt_t frame_counter){
 	
 	std::ofstream csi_file;
-	csi_file.open("/home/nij/GNU/csi_data.txt", std::ios::out | std::ios::app);
+	csi_file.open(d_filename, std::ios::out | std::ios::app);
 	csi_file << pmt::symbol_to_string(frame_counter) << "|";
 	std::vector<gr_complex>::iterator ptr;
 	for (ptr = csi_data.begin(); ptr < csi_data.end(); ptr++){
 		csi_file << std::showpos << "(" << std::real(*ptr) << std::imag(*ptr) << "j), ";
 	}
 	csi_file << std::endl;
-		
-	/*gr_complex csi[csi_data.size() - 2];
-	//std::copy(csi_data.begin(), csi_data.end() - 2, csi);
-	for (int k; k < csi_data.size() -2; k++){
-		csi[k] = csi_data[k];
-	}
-	uintptr_t temp = reinterpret_cast<uintptr_t>(csi);
-	std::cout << "FE: CSI SIZE: " << sizeof(csi) << std::endl;
-	//std::cout << "FE: CSI ADDRESS1: " << csi << std::endl;
-	//std::cout << "FE: CSI ADDRESS2: " << temp << std::endl;
-	
-	add_item_tag(0, nitems_written(0) + i + 1, pmt::string_to_symbol("CSI"), pmt::from_uint64(temp), frame_counter);*/
 }
 
 const int
