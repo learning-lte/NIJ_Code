@@ -500,7 +500,7 @@
     </param>
     <param>
       <key>value</key>
-      <value>""</value>
+      <value>"b4:f1:da:e8:a7:61"</value>
     </param>
   </block>
   <block>
@@ -1590,7 +1590,7 @@
     </param>
     <param>
       <key>debug</key>
-      <value>False</value>
+      <value>True</value>
     </param>
     <param>
       <key>_enabled</key>

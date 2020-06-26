@@ -5,15 +5,15 @@
 	<key>ieee802_11_frame_equalizer</key>
 	<category>[IEEE802.11]</category>
 	<import>import ieee802_11</import>
-	<make>ieee802_11.frame_equalizer($algo, $freq, $bw, $log, $debug, $rec_csi, $file)</make>
+	<make>ieee802_11.frame_equalizer($algo, $freq, $bw, $log, $debug, $rec_csi, $filename)</make>
 	<callback>set_algorithm($algo)</callback>
 	<callback>set_frequency($freq)</callback>
 	<callback>set_bandwidth($bw)</callback>
-	<callback>open($file)</callback>
-
+	
+	<callback>open($filename)</callback>
 	<param>
 		<name>CSI File Path</name>
-		<key>file</key>
+		<key>filename</key>
 		<value></value>
 		<type>file_save</type>
 	</param>

@@ -56,7 +56,7 @@ private:
 	bool d_debug;
 	bool d_log;
 	bool d_rec_csi;
-	const std::string& d_filename;
+	const std::string d_filename;
 	int  d_current_symbol;
 	viterbi_decoder d_decoder;
 

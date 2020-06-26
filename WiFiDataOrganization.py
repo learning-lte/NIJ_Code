@@ -153,19 +153,21 @@ def wifi_main(args):
             """Frame Number is the number associated with the frame in the parsed data text file. Raw Frame Number is the number
             saved in the metadata file associated with that raw frame. Both should always be increasing (although Frame Number can
             have duplicates). This if statement checks to see:
-                1. if frame number is less than raw_frame_number (Should never happen) or is a duplicate, then skip that frame number and raw frame
-                2. if frame number is greater than raw_frame_number (most common), then keep frame number and skip raw_frame
-                3. Skip 1st 100 frames captured correctly and if any frames come from zeroed MAC addresses (potential virtual machines or spoofs)
-                4. Proceed with saving successfully captured frame"""
+                1. if frame number is a duplicate, then skip that frame number and raw frame
+                2. if frame number is less than raw_frame_number (Should never happen), raise exception
+                3. if frame number is greater than raw_frame_number (most common), then keep frame number and skip raw_frame
+                4. Skip 1st 100 frames captured correctly and if any frames come from zeroed MAC addresses (potential virtual machines or spoofs)
+                5. Proceed with saving successfully captured frame"""
 
-            if (frame_number < raw_frame_number):
-                raise Exception("Recording Error!!!!")
-            elif (last_frame_number == frame_number):
+            if (last_frame_number == frame_number):
                 while (last_frame_number == frame_number):
+                    last_pos = parsed_data.tell()
                     mac_addr, frame_number = parsed_data.readline().split(",")
                     frame_number = int(frame_number.strip("\n"))
                 parsed_data.seek(last_pos)
-                index += header[1]
+                total_frames.pop()
+            elif (frame_number < raw_frame_number):
+                raise Exception("Recording Error!!!!")
             elif (frame_number > raw_frame_number):
                 parsed_data.seek(last_pos)
                 index += header[1]

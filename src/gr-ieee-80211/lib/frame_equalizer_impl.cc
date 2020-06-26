@@ -122,7 +122,7 @@ frame_equalizer_impl::general_work (int noutput_items,
 	std::vector<gr_complex> frame_csi;
 	gr_complex symbols[48];
 	gr_complex current_symbol[64];
-
+	
 	//dout << "FRAME EQUALIZER: input " << ninput_items[0] << "  output " << noutput_items << std::endl;
 
 	while((i < ninput_items[0]) && (o < noutput_items)) {
@@ -140,7 +140,7 @@ frame_equalizer_impl::general_work (int noutput_items,
 			d_epsilon0 = pmt::to_double(tags.front().value) * d_bw / (2 * M_PI * d_freq);
 			d_er = 0;
 			d_frame_counter = tags.front().srcid;
-			dout << "FE:Counter: " << d_frame_counter << "\n";
+			//dout << "FE:Counter: " << d_frame_counter << "\n";
 
 			//dout << "epsilon: " << d_epsilon0 << std::endl;
 		}
@@ -231,6 +231,7 @@ frame_equalizer_impl::general_work (int noutput_items,
 				add_item_tag(0, nitems_written(0) + o, pmt::string_to_symbol("wifi_start"), dict, d_frame_counter);
 				//std::cout << "FE: WF Tag Sent at " << nitems_written(0) + o <<std::endl;
 				if (d_rec_csi){
+					dout << "Record CSI? " << d_rec_csi << " Number? " << frame_csi.size() << std::endl;
 					send_csi(frame_csi, o, prev_frame_counter);
 					frame_csi.erase(frame_csi.begin(), frame_csi.end() - 2);
 					prev_frame_counter = d_frame_counter;
@@ -362,6 +363,7 @@ void frame_equalizer_impl::send_csi(std::vector<gr_complex> csi_data, int i, pmt
 		csi_file << std::showpos << "(" << std::real(*ptr) << std::imag(*ptr) << "j), ";
 	}
 	csi_file << std::endl;
+	csi_file.close();
 }
 
 const int
