@@ -26,7 +26,14 @@
 using namespace gr::ieee802_11;
 using namespace std;
 
-pmt::pmt_t d_frame_counter = pmt::string_to_symbol("0");
+pmt::pmt_t nij_dict = pmt::string_to_symbol("0");
+int frame_counter = 0;
+int prev_frame_counter;
+std::vector<gr_complex> d_raw_vec;
+std::vector<gr_complex> *raw_arr;
+std::vector<gr_complex> d_raw_vec_ant2;
+std::vector<gr_complex> *raw_arr_ant2;
+pmt::pmt_t ns = pmt::from_uint64(0);
 
 bool compare_abs(const std::pair<gr_complex, int>& first, const std::pair<gr_complex, int>& second) {
 	return abs(get<0>(first)) > abs(get<0>(second));
@@ -36,7 +43,7 @@ class sync_long_impl : public sync_long {
 
 public:
 sync_long_impl(unsigned int sync_length, bool log, bool debug) : block("sync_long",
-		gr::io_signature::make2(2, 2, sizeof(gr_complex), sizeof(gr_complex)),
+		gr::io_signature::make2(4, 4, sizeof(gr_complex), sizeof(gr_complex)),
 		gr::io_signature::make(1, 1, sizeof(gr_complex))),
 		d_fir(gr::filter::kernel::fir_filter_ccc(1, LONG)),
 		d_log(log),
@@ -60,9 +67,11 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 
 	const gr_complex *in = (const gr_complex*)input_items[0];
 	const gr_complex *in_delayed = (const gr_complex*)input_items[1];
+	const gr_complex *in_delayed_nij = (const gr_complex*)input_items[2];
+	const gr_complex *in_delayed_ant2 = (const gr_complex*)input_items[3];
 	gr_complex *out = (gr_complex*)output_items[0];
 
-	int ninput = std::min(std::min(ninput_items[0], ninput_items[1]), 8192);
+	int ninput = std::min(std::min(ninput_items[0], std::min(ninput_items[1], std::min(ninput_items[2], ninput_items[3]))), 8192);
 
 	const uint64_t nread = nitems_read(0);
 	get_tags_in_range(d_tags, 0, nread, nread + ninput);
@@ -70,7 +79,7 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 		std::sort(d_tags.begin(), d_tags.end(), gr::tag_t::offset_compare);
 
 		const uint64_t offset = d_tags.front().offset;
-		d_frame_counter = d_tags.front().srcid;
+		ns = d_tags.front().srcid;
 
 		if(offset > nread) {
 			ninput = offset - nread;
@@ -92,9 +101,9 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 	switch(d_state) {
 
 	case SYNC:
-		d_fir.filterN(d_correlation, in, std::min(SYNC_LENGTH, std::max(ninput - 63, 0)));
+		d_fir.filterN(d_correlation, in, std::min(SYNC_LENGTH, std::max(ninput, 0)));
 
-		while(i + 63 < ninput) {
+		while(i < ninput) {
 
 			d_cor.push_back(pair<gr_complex, int>(d_correlation[i], d_offset));
 
@@ -103,7 +112,7 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 
 			if(d_offset == SYNC_LENGTH) {
 				search_frame_start();
-				mylog(boost::format("LONG: frame start at %1% for frame %2%, Number of items in input: %3%, Where Tag is in current ninput: %4%, D Offset: %5%") % d_frame_start % pmt::symbol_to_string(d_frame_counter) % ninput % (nitems_read(0) - (uint64_t) d_tags.front().offset)%d_offset);
+				mylog(boost::format("LONG: frame start at %1% for frame %2%, Number of items in input: %3%, Where Tag is in current ninput: %4%, D Offset: %5%") % d_frame_start % nitems_read(0) %d_offset);
 				d_offset = 0;
 				d_count = 0;
 				d_state = COPY;
@@ -120,17 +129,31 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 			int rel = d_offset - d_frame_start;
 
 			if(!rel)  {
+				raw_arr = new vector<gr_complex>;
+				raw_arr_ant2 = new vector<gr_complex>;
+				frame_counter++;
+				uintptr_t temp = reinterpret_cast<uintptr_t>(raw_arr);
+				uintptr_t temp_ant2 = reinterpret_cast<uintptr_t>(raw_arr_ant2);
+				pmt::pmt_t nij_dict = pmt::make_dict();
+				nij_dict = pmt::dict_add(nij_dict, pmt::mp("framecounter"), pmt::from_long(frame_counter));
+				nij_dict = pmt::dict_add(nij_dict, pmt::mp("raw_data"), pmt::from_uint64(temp));
+				nij_dict = pmt::dict_add(nij_dict, pmt::mp("raw_ant2"), pmt::from_uint64(temp_ant2));
+				nij_dict = pmt::dict_add(nij_dict, pmt::mp("time_ns"), ns);
 				add_item_tag(0, nitems_written(0),
 						pmt::string_to_symbol("wifi_start"),
 						pmt::from_double(d_freq_offset_short - d_freq_offset),
-						d_frame_counter);
+						nij_dict);
+				
 			}
 
 			if(rel >= 0 && (rel < 128 || ((rel - 128) % 80) > 15)) {
 				out[o] = in_delayed[i] * exp(gr_complex(0, d_offset * d_freq_offset));
 				o++;
 			}
-
+			if (rel >=0){
+			d_raw_vec.push_back(in_delayed_nij[o]);
+			d_raw_vec_ant2.push_back(in_delayed_ant2[o]);
+			}
 			i++;
 			d_offset++;
 		}
@@ -142,6 +165,19 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 			if(((d_count + o) % 64) == 0) {
 				d_offset = 0;
 				d_state = SYNC;
+				if (frame_counter != prev_frame_counter){
+					vector<gr_complex>::iterator dups = unique(d_raw_vec.begin(), d_raw_vec.end());
+					d_raw_vec.resize(distance(d_raw_vec.begin(), dups));
+					*raw_arr = d_raw_vec;
+					d_raw_vec.clear();
+					dups = unique(d_raw_vec_ant2.begin(), d_raw_vec_ant2.end());
+					d_raw_vec_ant2.resize(distance(d_raw_vec_ant2.begin(), dups));
+					*raw_arr_ant2 = d_raw_vec_ant2;
+					d_raw_vec_ant2.clear();
+					//dout << "SL: Raw Data: " << raw_arr->size() << "," << to_string(frame_counter) << "," << raw_arr << endl;
+					prev_frame_counter = frame_counter;
+				}
+				d_raw_vec.clear();
 				break;
 			} else {
 				out[o] = 0;
@@ -158,6 +194,8 @@ int general_work (int noutput, gr_vector_int& ninput_items,
 	d_count += o;
 	consume(0, i);
 	consume(1, i);
+	consume(2, i);
+	consume(3, i);
 	return o;
 }
 
@@ -168,10 +206,14 @@ void forecast (int noutput_items, gr_vector_int &ninput_items_required) {
 	if(d_state == SYNC) {
 		ninput_items_required[0] = 64;
 		ninput_items_required[1] = 64;
+		ninput_items_required[2] = 64;
+		ninput_items_required[3] = 64;
 
 	} else {
 		ninput_items_required[0] = noutput_items;
 		ninput_items_required[1] = noutput_items;
+		ninput_items_required[2] = noutput_items;
+		ninput_items_required[3] = noutput_items;
 	}
 }
 
