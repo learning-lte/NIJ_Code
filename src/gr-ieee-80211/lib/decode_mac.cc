@@ -73,8 +73,8 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 
 		if(tags.size()) {
 			if (d_frame_complete == false) {
-				//dout << "Warning: starting to receive new frame before old frame was complete" << std::endl;
-				//dout << "Already copied " << copied << " out of " << d_frame.n_sym << " symbols of last frame" << std::endl;
+				dout << "Warning: starting to receive new frame before old frame was complete" << std::endl;
+				dout << "Already copied " << copied << " out of " << d_frame.n_sym << " symbols of last frame" << std::endl;
 			}
 			d_frame_complete = false;
 
@@ -85,7 +85,7 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 			d_nom_freq = pmt::to_double(pmt::dict_ref(dict, pmt::mp("freq"), pmt::from_double(0)));
 			d_freq_offset = pmt::to_double(pmt::dict_ref(dict, pmt::mp("freq_offset"), pmt::from_double(0)));
 			/////////////////////////
-			nij_dict = tags.front().srcid;
+			d_frame_counter = tags.front().srcid;
 			//dout << "DM: Counter:  " << pmt::symbol_to_string(d_frame_counter) << "\n";
 			/////////////////////////
 			
@@ -97,10 +97,10 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 				d_ofdm = ofdm;
 				d_frame = frame;
 				copied = 0;
-				//dout << "Decode MAC: frame start -- len " << len_data << "  symbols " << frame.n_sym << "  encoding "
-					//<< encoding << std::endl;
+				dout << "Decode MAC: frame start -- len " << len_data << "  symbols " << frame.n_sym << "  encoding "
+					<< encoding << std::endl;
 			} else {
-				//dout << "Dropping frame which is too large (symbols or bits)" << std::endl;
+				dout << "Dropping frame which is too large (symbols or bits)" << std::endl;
 			}
 		}
 
@@ -111,7 +111,7 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 
 			if(copied == d_frame.n_sym) {
 				dout << "received complete frame - decoding" << std::endl;
-				decode(nij_dict);
+				decode(d_frame_counter);
 				in += 48;
 				i++;
 				d_frame_complete = true;
@@ -128,7 +128,7 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 	return 0;
 }
 
-void decode(pmt::pmt_t nij_dict) {
+void decode(pmt::pmt_t d_frame_counter) {
 
 	for(int i = 0; i < d_frame.n_sym * 48; i++) {
 		for(int k = 0; k < d_ofdm.n_bpsc; k++) {
@@ -152,11 +152,6 @@ void decode(pmt::pmt_t nij_dict) {
 	mylog(boost::format("encoding: %1% - length: %2% - symbols: %3%")
 			% d_ofdm.encoding % d_frame.psdu_size % d_frame.n_sym);
 
-	pmt::pmt_t d_frame_counter = pmt::dict_ref(nij_dict, pmt::mp("framecounter"), pmt::PMT_NIL);
-	uintptr_t raw_temp = pmt::to_uint64(pmt::dict_ref(nij_dict, pmt::mp("raw_data"), pmt::PMT_NIL));
-	std::vector<gr_complex>* raw_arr = reinterpret_cast<std::vector<gr_complex>*> (raw_temp);
-	dout << "DM: Raw Data: " << raw_arr->size() << "," << pmt::symbol_to_string(d_frame_counter) << "," << raw_arr << std::endl;
-
 	// create PDU
 	pmt::pmt_t blob = pmt::make_blob(out_bytes + 2, d_frame.psdu_size - 4);
 	pmt::pmt_t enc = pmt::from_uint64(d_ofdm.encoding);
@@ -166,7 +161,7 @@ void decode(pmt::pmt_t nij_dict) {
 	dict = pmt::dict_add(dict, pmt::mp("nomfreq"), pmt::from_double(d_nom_freq));
 	dict = pmt::dict_add(dict, pmt::mp("freqofs"), pmt::from_double(d_freq_offset));
 	dict = pmt::dict_add(dict, pmt::mp("dlt"), pmt::from_long(LINKTYPE_IEEE802_11));
-	dict = pmt::dict_add(dict, pmt::mp("nij_dict"), nij_dict);
+	dict = pmt::dict_add(dict, pmt::mp("framecounter"), d_frame_counter);
 	message_port_pub(pmt::mp("out"), pmt::cons(dict, blob));
 
 }
@@ -248,7 +243,7 @@ private:
 	double d_snr;  // dB
 	double d_nom_freq;  // nominal frequency, Hz
 	double d_freq_offset;  // frequency offset, Hz
-	pmt::pmt_t nij_dict; 
+	pmt::pmt_t d_frame_counter; 
 	viterbi_decoder d_decoder;
 
 	uint8_t d_rx_symbols[48 * MAX_SYM];

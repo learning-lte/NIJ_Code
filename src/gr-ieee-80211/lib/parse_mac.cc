@@ -20,14 +20,8 @@
 #include <gnuradio/io_signature.h>
 #include <gnuradio/block_detail.h>
 #include <string>
-
 using namespace gr::ieee802_11;
 uint64_t frames_captured = 0;
-long last_frame_counter = 0;
-std::vector<gr_complex>* last_raw_addr = NULL;
-std::vector<gr_complex>* last_raw_ant2 = NULL;
-std::vector<uint64_t> old_addresses;
-//std::ofstream parsed_data("/home/nick/GNU/parsed_data", std::ios::out | std::ios::trunc | std::ios::binary);
 
 class parse_mac_impl : public parse_mac {
 
@@ -57,12 +51,11 @@ void parse(pmt::pmt_t msg) {
 	} else if(pmt::is_symbol(msg)) {
 		return;
 	}
-
+		
 	pmt::pmt_t dict = pmt::car(msg);
-	pmt::pmt_t nij_dict = pmt::dict_ref(dict, pmt::mp("nij_dict"), pmt::PMT_NIL);
-	if (pmt::is_null(nij_dict)){
-		std::cout << "WTF" << std::endl;
-	}
+	pmt::pmt_t temp = pmt::dict_ref(dict, pmt::mp("framecounter"), pmt::string_to_symbol("0"));
+	std::string d_frame_counter = pmt::symbol_to_string(temp);
+
 	msg = pmt::cdr(msg);
 	int data_len = pmt::blob_length(msg);
 	mac_header *h = (mac_header*)pmt::blob_data(msg);	
@@ -83,16 +76,16 @@ void parse(pmt::pmt_t msg) {
 
 		case 0:
 			dout << " (MANAGEMENT)" << std::endl;
-			parse_management((char*)h, data_len, nij_dict);
+			parse_management((char*)h, data_len, d_frame_counter);
 			break;
 		case 1:
 			dout << " (CONTROL)" << std::endl;
-			parse_control((char*)h, data_len, nij_dict);
+			parse_control((char*)h, data_len, d_frame_counter);
 			break;
 
 		case 2:
 			dout << " (DATA)" << std::endl;
-			parse_data((char*)h, data_len, nij_dict);
+			parse_data((char*)h, data_len, d_frame_counter);
 			break;
 
 		default:
@@ -111,7 +104,7 @@ void parse(pmt::pmt_t msg) {
 	}
 }
 
-void parse_management(char *buf, int length, pmt::pmt_t nij_dict) {
+void parse_management(char *buf, int length, std::string d_frame_counter) {
 
 	mac_header* h = (mac_header*)buf;
 
@@ -186,22 +179,21 @@ void parse_management(char *buf, int length, pmt::pmt_t nij_dict) {
 	}
 	dout << std::endl;
 
-	int seq_no = int(h->seq_nr >> 4);
-	dout << "seq nr: " << seq_no << std::endl;
+	dout << "seq nr: " << int(h->seq_nr >> 4) << std::endl;
 	dout << "mac 1: ";
 	////////////////////////////////////////////////////////////////////////////////////////
-	print_mac_address(h->addr1, true, nij_dict, false, seq_no);
+	print_mac_address(h->addr1, true, d_frame_counter, false);
 	dout << "mac 2: ";
-	print_mac_address(h->addr2, true, nij_dict, true, seq_no);
+	print_mac_address(h->addr2, true, d_frame_counter, true);
 	dout << "mac 3: ";
-	print_mac_address(h->addr3, true, nij_dict, false, seq_no);
-	std::cout << std::dec << "Number of Frames Captured: " << frames_captured << std::endl;
+	print_mac_address(h->addr3, true, d_frame_counter, false);
+	dout << "Number of Frames Captured: " << frames_captured << std::endl;
 	///////////////////////////////////////////////////////////////////////////////////////
 
 }
 
 
-void parse_data(char *buf, int length, pmt::pmt_t nij_dict) {
+void parse_data(char *buf, int length, std::string d_frame_counter) {
 
 	mac_header* h = (mac_header*)buf;
 	if(length < 24) {
@@ -268,12 +260,12 @@ void parse_data(char *buf, int length, pmt::pmt_t nij_dict) {
 	dout << "seq nr: " << seq_no << std::endl;
 	dout << "mac 1: ";
 	////////////////////////////////////////////////
-	print_mac_address(h->addr1, true, nij_dict, false, seq_no);
+	print_mac_address(h->addr1, true, d_frame_counter, false);
 	dout << "mac 2: ";
-	print_mac_address(h->addr2, true, nij_dict, true, seq_no);
+	print_mac_address(h->addr2, true, d_frame_counter, true);
 	dout << "mac 3: ";
-	print_mac_address(h->addr3, true, nij_dict, false, seq_no);
-	std::cout << std::dec << "Number of Frames Captured: " << frames_captured << std::endl;
+	print_mac_address(h->addr3, true, d_frame_counter, false);
+	dout << "Number of Frames Captured: " << frames_captured << std::endl;
 	/////////////////////////////////////////////////
 
 	float lost_frames = seq_no - d_last_seq_no - 1;
@@ -292,7 +284,7 @@ void parse_data(char *buf, int length, pmt::pmt_t nij_dict) {
 	message_port_pub(pmt::mp("fer"), pmt::cons( pmt::PMT_NIL, pdu ));
 }
 
-void parse_control(char *buf, int length, pmt::pmt_t nij_dict) {
+void parse_control(char *buf, int length, std::string d_frame_counter) {
 
 	mac_header* h = (mac_header*)buf;
 
@@ -333,27 +325,27 @@ void parse_control(char *buf, int length, pmt::pmt_t nij_dict) {
 
 	dout << "RA: ";
 	/////////////////////////////
-	print_mac_address(h->addr1, true, nij_dict, false);
+	print_mac_address(h->addr1, true, d_frame_counter, false);
 	dout << "TA: ";
-	print_mac_address(h->addr2, true, nij_dict, false);
+	print_mac_address(h->addr2, true, d_frame_counter, true);
+	dout << "Number of Frames Captured: " << frames_captured << std::endl;
 	/////////////////////////////
 
 }
 
-void print_mac_address(uint8_t *addr, bool new_line = false, pmt::pmt_t nij_dict = pmt::PMT_NIL, bool target = false, int seq_num=-1) {
+void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame_counter = "", bool target = false) {
 
-/* 	if(!d_debug) {
+	if(!d_debug) {
 		return;
-	} */
+	}
 
 	std::cout << std::setfill('0') << std::hex << std::setw(2);
-	long curr_frame_counter = pmt::to_long(pmt::dict_ref(nij_dict, pmt::mp("framecounter"), pmt::from_long(0)));
-	uint64_t curr_temp = pmt::to_uint64(pmt::dict_ref(nij_dict, pmt::mp("raw_data"), pmt::from_uint64(0)));
-	uint64_t curr_ant2 = pmt::to_uint64(pmt::dict_ref(nij_dict, pmt::mp("raw_ant2"), pmt::from_uint64(0)));
-	std::vector<gr_complex>* curr_raw_addr = reinterpret_cast<std::vector<gr_complex>*> (curr_temp);
-	std::vector<gr_complex>* curr_raw_ant2 = reinterpret_cast<std::vector<gr_complex>*> (curr_ant2);
 	
+<<<<<<< HEAD
 	if (target == true and last_frame_counter != curr_frame_counter and last_raw_addr != curr_raw_addr and curr_raw_ant2 != last_raw_ant2 and curr_raw_addr->size() > 0 and curr_raw_addr->size() < 10000){
+=======
+	if (target == true){
+>>>>>>> parent of 02f0973... Added capture for extra channel. Serialized data to binary before capture. Only two output files. Data parsing now much quicker
 		
 		std::stringstream mac_addr;
 		mac_addr << std::setfill('0') << std::hex << std::setw(2);
@@ -367,22 +359,15 @@ void print_mac_address(uint8_t *addr, bool new_line = false, pmt::pmt_t nij_dict
 	
 		if (!d_mac.empty()){
 			if (mac_addr.str()  == d_mac){
-				save_parsed(nij_dict, mac_addr.str(), seq_num);
-				last_frame_counter = curr_frame_counter;
-				last_raw_addr = curr_raw_addr;
-				last_raw_ant2 = curr_raw_ant2;
+				save_parsed(d_frame_counter, mac_addr.str());
 			}
 		}
 		else{
-			save_parsed(nij_dict, mac_addr.str(), seq_num);
-			last_frame_counter = curr_frame_counter;
-			last_raw_addr = curr_raw_addr;
-			last_raw_ant2 = curr_raw_ant2;
+			save_parsed(d_frame_counter, mac_addr.str());
 		}
-		std::cout << std::dec;
 	}
 
-/* 	for(int i = 0; i < 6; i++) {
+	for(int i = 0; i < 6; i++) {
 		std::cout << (int)addr[i];
 		if(i != 5) {
 			std::cout << ":";
@@ -393,7 +378,7 @@ void print_mac_address(uint8_t *addr, bool new_line = false, pmt::pmt_t nij_dict
 	
 	if(new_line) {
 		std::cout << std::endl;
-	} */
+	}
 }
 
 
@@ -408,50 +393,15 @@ void print_mac_address(uint8_t *addr, bool new_line = false, pmt::pmt_t nij_dict
 	"f0:79:60:7d:a2:12"
 	"a0:d7:95:1f:75:f7"
 	*/ 
-void save_parsed(pmt::pmt_t nij_dict, std::string mac_addr, int seq_num){
-	std::ofstream parsed_data(d_filename, std::ios::out | std::ios::app | std::ios::binary);
-	int d_frame_counter = pmt::to_long(pmt::dict_ref(nij_dict, pmt::mp("framecounter"), pmt::string_to_symbol("0")));
-	//uint64_t raw_size = pmt::to_uint64(pmt::dict_ref(nij_dict, pmt::mp("raw_size"), pmt::from_uint64(0)));
-	uint64_t raw_temp = pmt::to_uint64(pmt::dict_ref(nij_dict, pmt::mp("raw_data"), pmt::from_uint64(0)));
-	uint64_t raw_ant2 = pmt::to_uint64(pmt::dict_ref(nij_dict, pmt::mp("raw_ant2"), pmt::from_uint64(0)));
-	uint64_t time_ns = pmt::to_uint64(pmt::dict_ref(nij_dict, pmt::mp("time_ns"), pmt::from_uint64(0)));
-	std::vector<gr_complex>* raw_addr = reinterpret_cast<std::vector<gr_complex>*> (raw_temp);
-	std::vector<gr_complex>* raw_addr_ant2 = reinterpret_cast<std::vector<gr_complex>*> (raw_ant2);
-	int raw_size = raw_addr->size();
-	int raw_ant2_size = raw_addr_ant2->size();
-	char delim = '|';
-/* 	const char* mac = mac_addr.c_str();
-	parsed_data.write(mac, mac_addr.size());
-	parsed_data.write(&delim, sizeof(char)); */
-	parsed_data.write(reinterpret_cast<const char *> (&d_frame_counter), sizeof(int));
-	parsed_data.write(&delim, sizeof(char));
-	parsed_data.write(reinterpret_cast<const char *> (&seq_num), sizeof(int));
-	parsed_data.write(&delim, sizeof(char));
-	parsed_data.write(reinterpret_cast<const char *> (&time_ns), sizeof(uint64_t));
-	parsed_data.write(&delim, sizeof(char));
-	parsed_data.write(reinterpret_cast<const char *> (&raw_size), sizeof(int));
-	parsed_data.write(&delim, sizeof(char));
-	parsed_data.write(reinterpret_cast<const char *> (&raw_ant2_size), sizeof(int));
-	parsed_data.write(&delim, sizeof(char));
-	//parsed_data << '|' << d_frame_counter << '|' << seq_num << '|' << time_ns << '|';
-	//std::vector<gr_complex>::iterator ptr;
-/*  	for (ptr = raw_addr->begin(); ptr < raw_addr->end(); ptr++){
-		parsed_data <<  std::showpos << std::setprecision(6) << '(' <<  std::real(*ptr) << std::imag(*ptr) << "j), ";
-	} */
-	//std::cout << "Ant 1: " << raw_addr->front() << " Ant 2: " << raw_addr_ant2->front() << '\n';
-	parsed_data.write(reinterpret_cast<const char *> (raw_addr->data()), raw_size * sizeof(gr_complex));
-	parsed_data.write(&delim, sizeof(char));
-	parsed_data.write(reinterpret_cast<const char *> (raw_addr_ant2->data()), raw_ant2_size * sizeof(gr_complex));
-	parsed_data << '\n';
-	frames_captured ++;
+void save_parsed(std::string d_frame_counter, std::string mac_addr){
+	std::ofstream parsed_data;
+	parsed_data.open(d_filename, std::ios::out | std::ios::app);
+	parsed_data << std::setfill('0') << std::hex << std::setw(2);
+	parsed_data << mac_addr;
+	parsed_data << std::dec;
+	parsed_data << "," << d_frame_counter << "\n";
 	parsed_data.close();
-	//dout << '\n' << "PM: Raw Data: " << raw_addr->size()  << ", " << d_frame_counter << "," << raw_addr << '\n';
-	if (std::find(old_addresses.begin(), old_addresses.end(), raw_temp) != old_addresses.end() and std::find(old_addresses.begin(), old_addresses.end(), raw_ant2) != old_addresses.end()){
-	delete raw_addr;
-	delete raw_addr_ant2;
-	old_addresses.push_back(raw_temp);
-	old_addresses.push_back(raw_ant2);
-	}
+	frames_captured ++;
 }
 
 void print_ascii(char* buf, int length) {
@@ -463,7 +413,7 @@ void print_ascii(char* buf, int length) {
 			dout << ".";
 		}
 	}
-	dout << "\n";
+	dout << std::endl;
 }
 
 private:

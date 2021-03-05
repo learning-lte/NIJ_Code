@@ -239,7 +239,7 @@
     </param>
     <param>
       <key>value</key>
-      <value>""</value>
+      <value>"3.35_1.98_0_1"</value>
     </param>
   </block>
   <block>
@@ -1448,7 +1448,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -1703,7 +1703,7 @@
     </param>
     <param>
       <key>filename</key>
-      <value>"/home/nick/GNU/csi_data.txt" + file_suffix</value>
+      <value>"/home/nick/GNU/RawData/csi_data" + file_suffix</value>
     </param>
     <param>
       <key>comment</key>
@@ -1715,7 +1715,7 @@
     </param>
     <param>
       <key>debug</key>
-      <value>False</value>
+      <value>True</value>
     </param>
     <param>
       <key>_enabled</key>
@@ -1900,7 +1900,7 @@
     </param>
     <param>
       <key>file</key>
-      <value>"/home/nick/GNU/parsed_data" + file_suffix</value>
+      <value>"/home/nick/GNU/RawData/parsed_data" + file_suffix</value>
     </param>
   </block>
   <block>
@@ -2045,7 +2045,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -2400,7 +2400,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -2755,7 +2755,7 @@
     </param>
     <param>
       <key>dc_offs_enb0</key>
-      <value>False</value>
+      <value>True</value>
     </param>
     <param>
       <key>iq_imbal_enb0</key>
@@ -3151,7 +3151,7 @@
     </param>
     <param>
       <key>dc_offs_enb1</key>
-      <value>False</value>
+      <value>True</value>
     </param>
     <param>
       <key>iq_imbal_enb1</key>
@@ -3911,7 +3911,7 @@
     </param>
     <param>
       <key>dev_args</key>
-      <value>"name=SDR0"</value>
+      <value>"name=SDR1"</value>
     </param>
     <param>
       <key>_enabled</key>
@@ -3935,7 +3935,7 @@
     </param>
     <param>
       <key>clock_source0</key>
-      <value></value>
+      <value>external</value>
     </param>
     <param>
       <key>sd_spec0</key>
@@ -3943,7 +3943,7 @@
     </param>
     <param>
       <key>time_source0</key>
-      <value></value>
+      <value>external</value>
     </param>
     <param>
       <key>clock_source1</key>
@@ -4071,7 +4071,7 @@
     </param>
     <param>
       <key>sync</key>
-      <value></value>
+      <value>sync</value>
     </param>
     <param>
       <key>otw</key>

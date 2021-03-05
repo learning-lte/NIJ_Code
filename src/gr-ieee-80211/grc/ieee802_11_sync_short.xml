@@ -104,12 +104,6 @@
 		<nports>1</nports>
 	</sink>
 
-	<sink>
-		<name>in_delayed_ant2</name>
-		<type>complex</type>
-		<nports>1</nports>
-	</sink>
-
 	<source>
 		<name>out</name>
 		<type>complex</type>
@@ -117,13 +111,7 @@
 	</source>
 
 	<source>
-		<name>out_nij</name>
-		<type>complex</type>
-		<nports>1</nports>
-	</source>
-
-	<source>
-		<name>out_ant2</name>
+		<name>out1</name>
 		<type>complex</type>
 		<nports>1</nports>
 	</source>
