@@ -19,20 +19,20 @@
 #include "utils.h"
 
 #include <iostream>
+#include <chrono>
 
 using namespace gr::ieee802_11;
 
-static const int MIN_GAP = 480;
+static const int MIN_GAP = 4800;
 static const int MAX_SAMPLES = 540 * 80;
-int frame_counter = 0;
 
 class sync_short_impl : public sync_short {
 
 public:
 sync_short_impl(double threshold, unsigned int min_plateau, unsigned int samp_fact, double start_buffer, double end_buffer, bool log, bool debug) :
 		block("sync_short",
-			gr::io_signature::makev(4, 4, get_input_sizes()),
-			gr::io_signature::make(2, 2, sizeof(gr_complex))),
+			gr::io_signature::makev(5, 5, get_input_sizes()),
+			gr::io_signature::make(3, 3, sizeof(gr_complex))),
 		d_log(log),
 		d_debug(debug),
 		d_state(SEARCH),
@@ -57,14 +57,15 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 	const gr_complex *in_abs = (const gr_complex*)input_items[1];
 	const float *in_cor = (const float*)input_items[2];
 	const gr_complex *in_delayed = (const gr_complex *)input_items[3];
+	const gr_complex *in_delayed_ant2 = (const gr_complex *)input_items[4];
 	gr_complex *out = (gr_complex*)output_items[0];
-	gr_complex *out1 = (gr_complex*)output_items[1];
+	gr_complex *out_nij = (gr_complex*)output_items[1];
+	gr_complex *out_ant2 = (gr_complex*)output_items[2];
 
 	int noutput = noutput_items;
-	int ninput = std::min(std::min(ninput_items[0], ninput_items[1]), ninput_items[2]);
+	int ninput = std::min(std::min(std::min(std::min(ninput_items[0], ninput_items[1]), ninput_items[2]), ninput_items[3]), ninput_items[4]);
 	
-	//dout << "Sampling Factor: " << d_samp_fact << std::endl;
-	//dout << "SHORT noutput : " << noutput << " Orig ninput: " << ninput_items[0]  << " 40 MHZ ninput: " << ninput_items[3] << std::endl;
+	//dout << "SHORT noutput : " << noutput << " Orig ninput: " << ninput_items[0]  << " Oversampled ninput: " << ninput_items[3] << std::endl;
 
 	switch(d_state) {
 
@@ -92,6 +93,7 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 
 		consume_each(i);
 		consume(3, i*(d_samp_fact -1));
+		consume(4, i*(d_samp_fact -1));
 		return 0;
 	}
 
@@ -120,7 +122,8 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 
 			out[o] = in[o] * exp(gr_complex(0, -d_freq_offset * d_copied));
 			for (int j = 0; j < d_samp_fact; j++){
-				out1[o * d_samp_fact + j] = in_delayed[o * d_samp_fact + j];
+				out_nij[o * d_samp_fact + j] = in_delayed[o * d_samp_fact + j];
+				out_ant2[o * d_samp_fact + j] = in_delayed_ant2[o * d_samp_fact + j];
 			}
 			o++;
 			d_copied++;
@@ -132,13 +135,15 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 
 		//dout << "SHORT copied " << o << " SHORT copied buffer " << (o1 + o*d_samp_fact) << std::endl;
 		//dout << "Number Written 20: " << nitems_written(0) << " Number Written 40: " << nitems_written(1) << std::endl;
-		dout << "Number Read 20: " << nitems_read(0) << " Number Read 40: " << nitems_read(3) << std::endl;
+		//dout << "Number Read 20: " << nitems_read(0) << " Number Read 40: " << nitems_read(3) << std::endl;
 
 		consume_each(o);
 		consume(3, o*(d_samp_fact-1));
+		consume(4, o*(d_samp_fact-1));
 		
 		produce(0, o);
 		produce(1, o*d_samp_fact);
+		produce(2, o*d_samp_fact);
 		o = 0;
 		return WORK_CALLED_PRODUCE;
 	}
@@ -150,16 +155,16 @@ int general_work (int noutput_items, gr_vector_int& ninput_items,
 
 
 void insert_tag(uint64_t item, double freq_offset, uint64_t input_item, int o) {
-	mylog(boost::format("frame start at in: %2% out: %1% out40: %3%") % item % input_item % nitems_read(3));
-	frame_counter += 1;
 	const pmt::pmt_t key = pmt::string_to_symbol("wifi_start");
 	const pmt::pmt_t value = pmt::from_double(freq_offset);
-	const pmt::pmt_t value1 = pmt::from_uint64(frame_counter);
-	const pmt::pmt_t srcid = pmt::string_to_symbol(std::to_string(frame_counter));
+	uint64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::
+	now().time_since_epoch()).count();
+	const pmt::pmt_t srcid = pmt::from_uint64(ns);
+	//pmt::pmt_t srcid = pmt::string_to_symbol("0");
 	add_item_tag(0, item, key, value, srcid);
-	//add_item_tag(0, item + 1, srcid, pmt::from_uint64(0), srcid);
-	add_item_tag(1, (item - nitems_written(0) + nitems_written(1) + o * (d_samp_fact - 1)), key, value1, srcid);
-	//dout << "SS:Frame Counter: " << frame_counter << "Normal Stream Position: " << nitems_written(0) << "40MHz Stream Position: " << nitems_written(1)  << ", " << (nitems_written(1) + o) << std::endl;
+	add_item_tag(1, (item - nitems_written(0) + nitems_written(1) + o * (d_samp_fact - 1)), key, value, srcid);
+	add_item_tag(2, (item - nitems_written(0) + nitems_written(1) + o * (d_samp_fact - 1)), key, value, srcid);
+	//printf("%" PRIxPTR "\n", temp);
 }
 
 
@@ -169,6 +174,7 @@ static std::vector<int> get_input_sizes(){
          sizeof(gr_complex),
          sizeof(float),
          sizeof(gr_complex),
+		 sizeof(gr_complex),
      };
 }
 

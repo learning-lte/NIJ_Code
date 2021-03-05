@@ -37,7 +37,7 @@ pmt::pmt_t nij_dict = pmt::string_to_symbol("0");
 pmt::pmt_t prev_frame_counter = pmt::from_long(0);
 int prev_frame_symbols;
 std::vector<gr_complex> frame_csi;
-
+//std::ofstream csi_file("/home/nick/GNU/csi_data.txt", std::ios::out | std::ios::trunc);
 
 frame_equalizer_impl::frame_equalizer_impl(Equalizer algo, double freq, double bw, bool log, bool debug, bool rec_csi, const std::string& filename) :
 	gr::block("frame_equalizer",
@@ -124,7 +124,6 @@ frame_equalizer_impl::general_work (int noutput_items,
 	int o = 0;
 	gr_complex symbols[48];
 	gr_complex current_symbol[64];
-	
 	//dout << "FRAME EQUALIZER: input " << ninput_items[0] << "  output " << noutput_items << std::endl;
 
 	while((i < ninput_items[0]) && (o < noutput_items)) {
@@ -142,6 +141,7 @@ frame_equalizer_impl::general_work (int noutput_items,
 			d_epsilon0 = pmt::to_double(tags.front().value) * d_bw / (2 * M_PI * d_freq);
 			d_er = 0;
 			nij_dict = tags.front().srcid;
+			//dout << "FE:Counter: " << d_frame_counter << "\n";
 
 			//dout << "epsilon: " << d_epsilon0 << std::endl;
 		}
@@ -368,6 +368,12 @@ void frame_equalizer_impl::send_csi(std::vector<gr_complex> csi_data, int i, pmt
 	csi_file.write(&delim, sizeof(char));
 	csi_file.write(reinterpret_cast<const char *> (csi_data.data()), size * sizeof(gr_complex));
 	csi_file << '\n';
+/* 	csi_file << pmt::to_long(frame_counter) << '|';
+	std::vector<gr_complex>::iterator ptr;
+	for (ptr = csi_data.begin(); ptr < csi_data.end(); ptr++){
+		csi_file << std::showpos << std::setprecision(6) << '(' << std::real(*ptr) << std::imag(*ptr) << "j), ";
+	}
+	csi_file << std::endl; */
 	csi_file.close();
 }
 
