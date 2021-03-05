@@ -353,7 +353,7 @@ void print_mac_address(uint8_t *addr, bool new_line = false, pmt::pmt_t nij_dict
 	std::vector<gr_complex>* curr_raw_addr = reinterpret_cast<std::vector<gr_complex>*> (curr_temp);
 	std::vector<gr_complex>* curr_raw_ant2 = reinterpret_cast<std::vector<gr_complex>*> (curr_ant2);
 	
-	if (target == true and last_frame_counter != curr_frame_counter and last_raw_addr != curr_raw_addr and curr_raw_ant2 != last_raw_ant2 and curr_raw_addr->size() > 0){
+	if (target == true and last_frame_counter != curr_frame_counter and last_raw_addr != curr_raw_addr and curr_raw_ant2 != last_raw_ant2 and curr_raw_addr->size() > 0 and curr_raw_addr->size() < 10000){
 		
 		std::stringstream mac_addr;
 		mac_addr << std::setfill('0') << std::hex << std::setw(2);

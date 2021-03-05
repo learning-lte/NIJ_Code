@@ -35,6 +35,8 @@ frame_equalizer::make(Equalizer algo, double freq, double bw, bool log, bool deb
 
 pmt::pmt_t nij_dict = pmt::string_to_symbol("0"); 
 pmt::pmt_t prev_frame_counter = pmt::from_long(0);
+int prev_frame_symbols;
+std::vector<gr_complex> frame_csi;
 //std::ofstream csi_file("/home/nick/GNU/csi_data.txt", std::ios::out | std::ios::trunc);
 
 frame_equalizer_impl::frame_equalizer_impl(Equalizer algo, double freq, double bw, bool log, bool debug, bool rec_csi, const std::string& filename) :
@@ -120,7 +122,6 @@ frame_equalizer_impl::general_work (int noutput_items,
 
 	int i = 0;
 	int o = 0;
-	std::vector<gr_complex> frame_csi;
 	gr_complex symbols[48];
 	gr_complex current_symbol[64];
 	//dout << "FRAME EQUALIZER: input " << ninput_items[0] << "  output " << noutput_items << std::endl;
@@ -140,10 +141,6 @@ frame_equalizer_impl::general_work (int noutput_items,
 			d_epsilon0 = pmt::to_double(tags.front().value) * d_bw / (2 * M_PI * d_freq);
 			d_er = 0;
 			nij_dict = tags.front().srcid;
-			pmt::pmt_t d_frame_counter = pmt::dict_ref(nij_dict, pmt::mp("framecounter"), pmt::PMT_NIL);
-			uintptr_t raw_temp = pmt::to_uint64(pmt::dict_ref(nij_dict, pmt::mp("raw_data"), pmt::PMT_NIL));
-			std::vector<gr_complex>* raw_arr = reinterpret_cast<std::vector<gr_complex>*> (raw_temp);
-			dout << "FE: Raw Data: " << raw_arr->size() << "," << pmt::symbol_to_string(d_frame_counter) << "," << raw_arr << std::endl;;
 			//dout << "FE:Counter: " << d_frame_counter << "\n";
 
 			//dout << "epsilon: " << d_epsilon0 << std::endl;
@@ -219,6 +216,7 @@ frame_equalizer_impl::general_work (int noutput_items,
 			for (int count = 0; count < 64; count++){
 				frame_csi.push_back(d_H[count]);
 			}
+			//dout << "Size after: " << frame_csi.size() << '\n';
 		}
 
 		// signal field
@@ -235,10 +233,11 @@ frame_equalizer_impl::general_work (int noutput_items,
 				add_item_tag(0, nitems_written(0) + o, pmt::string_to_symbol("wifi_start"), dict, nij_dict);
 				//std::cout << "FE: WF Tag Sent at " << nitems_written(0) + o <<std::endl;
 				if (d_rec_csi){
-					dout << "Record CSI? " << d_rec_csi << " Number? " << frame_csi.size() << std::endl;
+					dout << "Frame Symbols: " << prev_frame_symbols << " Number? " << frame_csi.size() << " Frame Number:" << prev_frame_counter << '\n';
 					send_csi(frame_csi, o, prev_frame_counter);
-					frame_csi.erase(frame_csi.begin(), frame_csi.end() - 2);
+					frame_csi.erase(frame_csi.begin(), frame_csi.end() - 2 * 64);
 					prev_frame_counter = pmt::dict_ref(nij_dict, pmt::mp("framecounter"), pmt::from_long(0));
+					prev_frame_symbols = d_frame_symbols + 2;
 				}
 			}
 		}
@@ -359,13 +358,22 @@ frame_equalizer_impl::parse_signal(uint8_t *decoded_bits) {
 }
 void frame_equalizer_impl::send_csi(std::vector<gr_complex> csi_data, int i, pmt::pmt_t frame_counter){
 	
-	std::ofstream csi_file(d_filename, std::ios::out | std::ios::app);
-	csi_file << pmt::to_long(frame_counter) << '|';
+	std::ofstream csi_file(d_filename, std::ios::out | std::ios::app | std::ios::binary);
+	char delim = '|';
+	int temp_frame_counter = pmt::to_long(frame_counter);
+	int size = csi_data.size();
+	csi_file.write(reinterpret_cast<const char *> (&temp_frame_counter), sizeof(int));
+	csi_file.write(&delim, sizeof(char));
+	csi_file.write(reinterpret_cast<const char *> (&size), sizeof(int));
+	csi_file.write(&delim, sizeof(char));
+	csi_file.write(reinterpret_cast<const char *> (csi_data.data()), size * sizeof(gr_complex));
+	csi_file << '\n';
+/* 	csi_file << pmt::to_long(frame_counter) << '|';
 	std::vector<gr_complex>::iterator ptr;
 	for (ptr = csi_data.begin(); ptr < csi_data.end(); ptr++){
 		csi_file << std::showpos << std::setprecision(6) << '(' << std::real(*ptr) << std::imag(*ptr) << "j), ";
 	}
-	csi_file << std::endl;
+	csi_file << std::endl; */
 	csi_file.close();
 }
 

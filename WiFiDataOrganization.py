@@ -85,21 +85,34 @@ def test_plots(raw_frame, ant2_frame=[], corr_frame=[]):
     plt.show()
     plt.close()
 
+def extract_single_csi(csi_data, csi_index):
+    frame_number = unpack('i', csi_data[csi_index:csi_index+4])[0]
+    csi_index += 4
+    check_delim(csi_data[csi_index])
+    csi_index += 1
+    size = unpack('i', csi_data[csi_index:csi_index + 4])[0]
+    csi_index += 4
+    check_delim(csi_data[csi_index])
+    csi_index += 1
+    csi_bytes = size * 8
+    csi_frame = np.array(unpack('f' * size * 2, csi_data[csi_index:csi_index + csi_bytes]), dtype=np.float32)
+    csi_frame = list(csi_frame.view(np.complex64))
+    csi_index += csi_bytes
+    new_line = csi_data[csi_index]
+    csi_index += 1
+    if (new_line != '\n' or new_line == ''):
+        raise("New line character missing in csi file")
+    return csi_frame, csi_index, frame_number
 
-def assemble_csi_frame(args, frame_number):
-    csi_data = open(args.base_path + "csi_data" + args.fileName + ".txt").read()
-    linestart = csi_data.find(str(frame_number))
-    if (linestart < 0):
-        Exception("Could not find CSI for associated frame!")
-    csistart = csi_data.find("|", linestart, len(csi_data)) + 1
-    csiend = csi_data.find("\n", csistart, len(csi_data))
-    csi_frame = csi_data[csistart:csiend]
-    csi_frame = csi_frame.replace(" ", "")
-    csi_frame = csi_frame.replace("(", "")
-    csi_frame = csi_frame.replace(")", "")
-    csi_frame = csi_frame.split(",")[:-1]
-    csi_frame = [complex(x) for x in csi_frame]
-    return csi_frame
+
+def assemble_csi_frame(args, frame_number, csi_data, csi_index):
+
+    while (csi_data[csi_index] != ''):
+        csi_frame, csi_index, csi_frame_number = extract_single_csi(csi_data, csi_index)
+        if (csi_frame_number == frame_number):
+            return csi_frame, csi_index
+        elif (csi_frame_number > frame_number):
+            raise("Missing CSI Frame")
 
 def trim_wifi(args, raw_frame):
     #0.025 is hand determined value of beginning of array. May need to retune
@@ -136,7 +149,7 @@ def save2np(args, training_frames, training_csi, training_pow, training_ant2, tr
     dev_labels = np.full((final_size), args.dev, dtype=np.uint8)
     loc_labels = np.full((final_size,2), list(args.loc), dtype=np.float16)
     rx_labels = np.full((final_size), args.rx, dtype=np.uint8)
-    save_path = args.base_path + "WiFi" + str(args.loc[0]) + "." + str(args.loc[1]) + "." + str(args.dev) + "." + str(args.rx)
+    save_path = args.base_path + "ProcData/WiFi" + str(args.loc[0]) + "_" + str(args.loc[1]) + "_" + str(args.dev) + "_" + str(args.rx)
     np.savez(save_path, rawTrain=training_frames, ant2Train=training_ant2, csiTrain=training_csi, powTrain=training_pow, frameNums=training_num, frameTimes=training_time,
              dev_labels=dev_labels, loc_labels=loc_labels, rx_labels=rx_labels)
 
@@ -175,12 +188,12 @@ def unpack_frame(pd, index):
     index += 1
     raw_size_bytes = raw_size * 8
     raw_ant2_bytes = raw_ant2_size * 8
-    raw_frame = np.array(unpack('f' * raw_size * 2, pd[index:index + raw_size_bytes]), dtype=np.complex64)
+    raw_frame = np.array(unpack('f' * raw_size * 2, pd[index:index + raw_size_bytes]), dtype=np.float32)
     raw_frame = list(raw_frame.view(np.complex64))
     index += raw_size_bytes
     check_delim(pd[index])
     index += 1
-    ant2_frame = np.array(unpack('f' * raw_ant2_size * 2, pd[index:index + raw_ant2_bytes]), dtype=np.complex64)
+    ant2_frame = np.array(unpack('f' * raw_ant2_size * 2, pd[index:index + raw_ant2_bytes]), dtype=np.float32)
     ant2_frame = list(ant2_frame.view(np.complex64))
     index += raw_ant2_bytes
     size_diff = len(ant2_frame) - len(raw_frame)
@@ -191,7 +204,7 @@ def unpack_frame(pd, index):
     new_line = pd[index]
     index += 1
     if (new_line != '\n' or new_line == ''):
-        raise("New line character missing")
+        raise("New line character missing in parsed_data file")
     return frame_number, seq_num, time_ns, raw_frame, ant2_frame, index
 
 def wifi_main(args):
@@ -207,8 +220,10 @@ def wifi_main(args):
     training_rssi = []
     training_seq = []
     training_time = []
+    csi_index = 0;
+    csi_file = open(args.base_path + "RawData/csi_data" + args.fileName).read()
 
-    with open(args.base_path + "parsed_data" + args.fileName, "rb") as pd:
+    with open(args.base_path + "RawData/parsed_data" + args.fileName, "rb") as pd:
         # starting_pos = pd.tell()
         # pd.read()
         # ending_pos = pd.tell()
@@ -247,7 +262,7 @@ def wifi_main(args):
             training_ant2_frames.append(ant2_frame)
 
             if (args.got_csi):
-                csi_frame = assemble_csi_frame(args, frame_number)
+                csi_frame = assemble_csi_frame(args, frame_number, csi_file, csi_index)
                 csi_frame, curr_max_csi_size, training_csi_frames = maintain_max_shape(csi_frame, curr_max_csi_size, training_csi_frames)
                 training_csi_frames.append(csi_frame)
                 if (args.plot_frames and args.debug):
@@ -270,7 +285,7 @@ if __name__ == '__main__':
     parser.add_argument('-wifi', action='store_true', default=False, dest='parse_wifi', help='Parses WiFi')
     parser.add_argument('-file', action='store', default='', dest='fileName',
                         help='File suffix at the end of each file')
-    parser.add_argument('-base_path', action='store', default="/home/nick/GNU/", dest='base_path',
+    parser.add_argument('-base_path', action='store', default="/home/nij/GNU/", dest='base_path',
                         help='Path to all files')
     parser.add_argument('-p', action='store_true', default=False, dest='plot_frames',
                         help='Plots frames in matplotlib to appear on screen')
