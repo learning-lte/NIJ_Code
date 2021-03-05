@@ -118,29 +118,12 @@ def extract_single_csi(csi_data, csi_index):
 
 def assemble_csi_frame(args, frame_number, csi_data, csi_index):
 
-<<<<<<< HEAD
     while (csi_data[csi_index] != ''):
         csi_frame, csi_index, csi_frame_number = extract_single_csi(csi_data, csi_index)
         if (csi_frame_number == frame_number):
             return csi_frame, csi_index
         elif (csi_frame_number > frame_number):
             raise("Missing CSI Frame")
-=======
-def assemble_csi_frame(args, frame_number):
-    csi_data = open(args.base_path + "csi_data" + args.fileName + ".txt").read()
-    linestart = csi_data.find(str(frame_number))
-    if (linestart < 0):
-        Exception("Could not find CSI for associated frame!")
-    csistart = csi_data.find("|", linestart, len(csi_data)) + 1
-    csiend = csi_data.find("\n", csistart, len(csi_data))
-    csi_frame = csi_data[csistart:csiend]
-    csi_frame = csi_frame.replace(" ", "")
-    csi_frame = csi_frame.replace("(", "")
-    csi_frame = csi_frame.replace(")", "")
-    csi_frame = csi_frame.split(",")[:-1]
-    csi_frame = np.array([complex(x) for x in csi_frame], np.complex64)
-    return csi_frame
->>>>>>> parent of 02f0973... Added capture for extra channel. Serialized data to binary before capture. Only two output files. Data parsing now much quicker
 
 def trim_wifi(args, raw_frame):
     #0.025 is hand determined value of beginning of array. May need to retune
@@ -167,7 +150,6 @@ def save2np(args, training_frames, training_csi, training_pow, training_ant2=np.
     dev_labels = np.full((final_size), args.dev, dtype=np.uint8)
     loc_labels = np.full((final_size,2), list(args.loc), dtype=np.float16)
     rx_labels = np.full((final_size), args.rx, dtype=np.uint8)
-<<<<<<< HEAD
     save_path = args.base_path + "ProcData/WiFi" + str(args.loc[0]) + "_" + str(args.loc[1]) + "_" + str(args.dev) + "_" + str(args.rx)
     np.savez(save_path, rawTrain=training_frames, ant2Train=training_ant2, csiTrain=training_csi, powTrain=training_pow, frameNums=training_num, frameTimes=training_time,
              dev_labels=dev_labels, loc_labels=loc_labels, rx_labels=rx_labels)
@@ -225,18 +207,6 @@ def unpack_frame(pd, index):
     if (new_line != '\n' or new_line == ''):
         raise("New line character missing in parsed_data file")
     return frame_number, seq_num, time_ns, raw_frame, ant2_frame, index
-=======
-    if (args.parse_lte):
-        save_path = args.base_path + "LTE" + str(args.dev) + "." + str(args.loc[0]) + "." + str(args.loc[1]) + "." + str(args.rx)
-    elif (args.parse_wifi):
-        save_path = args.base_path + "WiFi" + str(args.loc[0]) + "." + str(args.loc[1]) + "." + str(args.dev) + "." + str(args.rx)
-    np.savez(save_path, rawTrain=training_frames, ant2Train=training_ant2, csiTrain=training_csi, powTrain=training_pow, frameNums=training_num,
-             dev_labels=dev_labels, loc_labels=loc_labels, rx_labels=rx_labels)
-
-    print("Number of Frames Captured:", final_size)
-    print("Done")
-
->>>>>>> parent of 02f0973... Added capture for extra channel. Serialized data to binary before capture. Only two output files. Data parsing now much quicker
 
 def wifi_main(args):
     # Load Files
@@ -282,31 +252,6 @@ def wifi_main(args):
         index = 0
         while (index != pd.tell()):
             if (len(training_raw_frames) == args.num_save):
-=======
-    curr_min_size = args.trim_len
-    curr_min_csi_size = 1000
-    training_raw_frames = np.empty((1, curr_min_size), np.complex64)
-    training_csi_frames = np.empty((1, curr_min_size), np.complex64)
-    training_rssi = np.empty((1,1), np.float)
-
-    for header in header_data:
-
-        if (training_raw_frames.shape[0] == args.num_save):
-            break
-        # If not at end of parsed_data file, reads in next line
-        # Frame_number is the number of the next frame that was decoded successfully a.k.a we have its MAC address
-        # raw_frame_number is retrieved from the raw frames metadata and the number associated with each raw_frame
-        last_pos = parsed_data.tell()
-        current_line = parsed_data.read()
-        raw_frame_number = int(header[2])
-
-        if (header[1] != 0):
-            if (current_line != ""):
-                parsed_data.seek(last_pos)
-                mac_addr, frame_number = parsed_data.readline().split(",")
-                frame_number = int(frame_number.strip("\n"))
-            else:
->>>>>>> parent of 02f0973... Added capture for extra channel. Serialized data to binary before capture. Only two output files. Data parsing now much quicker
                 break
 
             # If the next frame number is the same as this frame number, skip the raw frame and the frame numbers
@@ -364,7 +309,6 @@ def wifi_main(args):
 
                 # Also plots the test_plots to view the frame
                 if (args.plot_frames):
-<<<<<<< HEAD
                     test_plots(raw_frame, ant2_frame, corr_frame)
             elif (args.plot_frames):
                 test_plots(raw_frame, ant2_frame)
@@ -391,147 +335,6 @@ def wifi_main(args):
             #print("Frame", len(training_raw_frames), " captured")
 
     save2np(args, training_raw_frames, training_csi_frames, training_rssi, training_ant2_frames, training_seq, training_time)
-=======
-                    test_plots(raw_frame, corr_frame)
-                # Save raw frame, csi (if desired), and rssi (if desired)
-                raw_frame, curr_min_size, training_raw_frames = maintain_shape(raw_frame, curr_min_size, training_raw_frames)
-                training_raw_frames = np.vstack([training_raw_frames, raw_frame])
-                if (args.got_csi):
-                    csi_frame = assemble_csi_frame(args, frame_number)
-                    csi_frame, curr_min_csi_size, training_csi_frames = maintain_shape(csi_frame, curr_min_csi_size, training_csi_frames)
-                    training_csi_frames = np.vstack([training_csi_frames, csi_frame])
-                if(args.got_power):
-                    rssi = calculate_rssi(args, raw_frame)
-                    training_rssi = np.vstack([training_rssi, rssi])
-
-        raw_frame = np.array([], np.complex64)
-
-    # Checks to make sure no extra frames captured (Never been a problem before)
-    parsed_data.close()
-    if (file_len(args.base_path + "parsed_data" + args.fileName + ".txt") < training_raw_frames.shape[0]):
-        raise Exception("Captured too many frames.")
-    save2np(args, training_raw_frames, training_csi_frames, training_rssi)
-
-
-def lte_main(args):
-
-    raw_data = scipy.fromfile(open(args.base_path + "raw_data" + args.fileName + ".txt"), dtype = scipy.complex64)
-    raw_delim = 999999+0j
-    ant2_delim = 999999.1+0j
-    csi_delim = 999999.2+0j
-    rsrp_delim = 999999.3+0j
-    tti_delim = 999999.4 + 0j
-    frame_count = np.count_nonzero((raw_data == raw_delim))
-    ant2_count = np.count_nonzero((raw_data == ant2_delim))
-    csi_count = np.count_nonzero((raw_data == csi_delim))
-    rsrp_count = np.count_nonzero((raw_data == rsrp_delim))
-    tti_count = np.count_nonzero((raw_data == tti_delim))
-
-    if (frame_count != csi_count or frame_count != rsrp_count or frame_count != ant2_count or frame_count != tti_count):
-        Exception("Error: Uneven number of Frames, CSI, and RSRP!")
-
-    skip_samp1_ind = np.where(raw_data==tti_delim)[0][0] + 1
-    raw_data = raw_data[skip_samp1_ind:]
-    MIN_DESIRED_CSI_LEN = 100
-    working_frame = []
-    curr_min_size = 500
-    curr_min_ant2_size = 500
-    curr_min_csi_size = 1000
-    training_raw_frames = np.empty((1, curr_min_size), np.complex64)
-    training_csi_frames = np.empty((1, curr_min_csi_size), np.complex64)
-    training_ant2_frames = np.empty((1, curr_min_size), np.complex64)
-    training_rsrp = np.empty((1,1), np.float)
-    training_tti = np.empty((1, 1), np.uint32)
-    delete_frame_flag = False
-
-    for sample in raw_data:
-        if (training_tti.shape == args.num_save):
-            break
-        if sample == np.complex64(raw_delim):
-            if (args.debug):
-                print("Length of Pre Raw Frame: ", len(working_frame))
-                working_frame = list(filter(lambda samp: samp != 0, working_frame))
-                print("Length of Post Raw Frame: ", len(working_frame))
-            if (args.plot_frames or training_raw_frames.shape[0] > 8000):
-                test_plots(working_frame, np.correlate(working_frame, working_frame, 'same'))
-
-            working_frame, curr_min_size, training_raw_frames = maintain_shape(working_frame, curr_min_size, training_raw_frames)
-            raw_frame = np.array(working_frame)
-            raw_angle = np.angle(raw_frame, deg=True)
-            training_raw_frames = np.vstack([training_raw_frames, raw_frame])
-            working_frame = []
-        elif sample == np.complex64(ant2_delim):
-            if (args.debug):
-                print("Length of Pre Raw Frame: ", len(working_frame))
-                working_frame = list(filter(lambda samp: samp != 0, working_frame))
-                print("Length of Post Raw Frame: ", len(working_frame))
-            if (args.plot_frames):
-                test_plots(working_frame, np.correlate(working_frame, working_frame, 'same'))
-
-            working_frame, curr_min_ant2_size, training_ant2_frames = maintain_shape(working_frame, curr_min_ant2_size, training_ant2_frames)
-            ant2_frame = np.array(working_frame)
-            training_ant2_frames = np.vstack([training_ant2_frames, ant2_frame])
-            #get_AoA(raw_frame, ant2_frame)
-            working_frame = []
-        elif sample == np.complex64(csi_delim):
-            if (args.debug):
-                print("Length of CSI Frame: ", len(working_frame))
-                if (args.plot_frames):
-                    test_plots(working_frame)
-            if (len(working_frame) < MIN_DESIRED_CSI_LEN):
-                delete_frame_flag = True
-                working_frame = []
-                continue
-
-            working_frame = working_frame[12:]
-            working_frame, curr_min_csi_size, training_csi_frames = maintain_shape(working_frame, curr_min_csi_size, training_csi_frames)
-            csi_frame = np.array(working_frame)
-            training_csi_frames = np.vstack([training_csi_frames, csi_frame])
-            working_frame = []
-        elif sample == np.complex64(rsrp_delim):
-            if (len(working_frame) != 1):
-                Exception("Extra Elements captured with RSRP")
-            rsrp = np.array(float(working_frame[0]))
-            if (args.debug):
-                print("RSRP in dbm:", float(working_frame[0]))
-
-            training_rsrp = np.vstack((training_rsrp, rsrp))
-            working_frame = []
-
-        elif sample == np.complex64(tti_delim):
-            if (len(working_frame) != 1):
-                Exception("Extra Elements captured with TTI")
-            tti = np.array(int(float(working_frame[0])))
-            if (args.debug):
-                print("TTI:", int(float(working_frame[0])))
-            if (delete_frame_flag):
-                training_raw_frames = training_raw_frames[:-1]
-                training_ant2_frames = training_ant2_frames[:-1]
-                training_rsrp = training_rsrp[:-1]
-                delete_frame_flag = False
-                working_frame = []
-                if (args.debug):
-                    print("Deleted frame")
-                continue
-
-            training_tti = np.vstack((training_tti, tti))
-            working_frame = []
-
-        else:
-            working_frame.append(sample)
-
-    save2np(args, training_raw_frames, training_csi_frames, training_rsrp, training_ant2_frames, training_tti)
-
-def get_AoA(ant1_frame, ant2_frame):
-
-    ang1 = np.mean(np.angle(ant1_frame))
-    ang2 = np.mean(np.angle(ant2_frame))
-    wv_len = (3.0*10**8)/(2.565*10**9)
-    dist = 0.02
-    theta = np.arcsin(((ang1-ang2)*wv_len))/(2*np.pi*dist)
-    theta_deg = theta * np.pi/180
-
->>>>>>> parent of 02f0973... Added capture for extra channel. Serialized data to binary before capture. Only two output files. Data parsing now much quicker
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Takes 5 files (file sink, file sink header, parse data, and '
@@ -541,11 +344,7 @@ if __name__ == '__main__':
     parser.add_argument('-wifi', action='store_true', default=False, dest='parse_wifi', help='Parses WiFi')
     parser.add_argument('-file', action='store', default='', dest='fileName',
                         help='File suffix at the end of each file')
-<<<<<<< HEAD
     parser.add_argument('-base_path', action='store', default="/home/nij/GNU/", dest='base_path',
-=======
-    parser.add_argument('-base_path', action='store', default="/home/nick/srsLTE/", dest='base_path',
->>>>>>> parent of 02f0973... Added capture for extra channel. Serialized data to binary before capture. Only two output files. Data parsing now much quicker
                         help='Path to all files')
     parser.add_argument('-p', action='store_true', default=False, dest='plot_frames',
                         help='Plots frames in matplotlib to appear on screen')

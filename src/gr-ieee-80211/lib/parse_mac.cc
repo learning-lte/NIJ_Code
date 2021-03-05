@@ -341,12 +341,8 @@ void print_mac_address(uint8_t *addr, bool new_line = false, std::string d_frame
 
 	std::cout << std::setfill('0') << std::hex << std::setw(2);
 	
-<<<<<<< HEAD
-	if (target == true and last_frame_counter != curr_frame_counter and last_raw_addr != curr_raw_addr and curr_raw_ant2 != last_raw_ant2 and curr_raw_addr->size() > 0 and curr_raw_addr->size() < 10000){
-=======
-	if (target == true){
->>>>>>> parent of 02f0973... Added capture for extra channel. Serialized data to binary before capture. Only two output files. Data parsing now much quicker
-		
+	if (target == true and last_frame_counter != curr_frame_counter and last_raw_addr != curr_raw_addr and curr_raw_ant2 != last_raw_ant2 and curr_raw_addr->size() > 0){
+
 		std::stringstream mac_addr;
 		mac_addr << std::setfill('0') << std::hex << std::setw(2);
 	
