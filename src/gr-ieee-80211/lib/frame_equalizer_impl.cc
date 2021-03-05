@@ -230,7 +230,7 @@ frame_equalizer_impl::general_work (int noutput_items,
 				dict = pmt::dict_add(dict, pmt::mp("snr"), pmt::from_double(d_equalizer->get_snr()));
 				dict = pmt::dict_add(dict, pmt::mp("freq"), pmt::from_double(d_freq));
 				dict = pmt::dict_add(dict, pmt::mp("freq_offset"), pmt::from_double(d_freq_offset_from_synclong));
-				add_item_tag(0, nitems_written(0) + o, pmt::string_to_symbol("wifi_start"), dict, d_frame_counter);
+				add_item_tag(0, nitems_written(0) + o, pmt::string_to_symbol("wifi_start"), dict, nij_dict);
 				//std::cout << "FE: WF Tag Sent at " << nitems_written(0) + o <<std::endl;
 				if (d_rec_csi){
 					dout << "Frame Symbols: " << prev_frame_symbols << " Number? " << frame_csi.size() << " Frame Number:" << prev_frame_counter << '\n';
