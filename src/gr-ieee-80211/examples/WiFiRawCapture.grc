@@ -608,7 +608,7 @@
     </param>
     <param>
       <key>file</key>
-      <value>"/home/nij/GNU/RawData/lte_ant1_" + file_suffix</value>
+      <value>"/home/nij/GNU/RawData/wifi_ant1_" + file_suffix</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -659,7 +659,7 @@
     </param>
     <param>
       <key>file</key>
-      <value>"/home/nij/GNU/RawData/lte_ant2_" + file_suffix</value>
+      <value>"/home/nij/GNU/RawData/wifi_ant2_" + file_suffix</value>
     </param>
     <param>
       <key>_coordinate</key>
