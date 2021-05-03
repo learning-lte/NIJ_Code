@@ -29,28 +29,38 @@ class SDR:
         rssi = []
         snr = []
         delete_list = []
+
         for index, frames in enumerate(zip(self.ant1, self.ant2)):
             raw_frame = frames[0].tolist()
             ant2_frame = frames[1].tolist()
             corr_frame = []
+
+            #Calculates cross-correlation of WiFi frame with LTF to see where start of frame is
             if args.debug:
                 corr_frame = crossCor(raw_frame)
             if args.plot_frames:
                 test_plots(raw_frame, ant2_frame, corr_frame)
+
+            #Trim WiFi frames to the preamble and noise
             raw_start, raw_preamble, noise_frame = trim_wifi(args, raw_frame)
             ant2_start, ant2_preamble, _ = trim_wifi(args, ant2_frame)
+
+            #If there was a frame (a.k.a not noise or interference)
+            #Add frames to file with their powers else delete
             if raw_preamble.size != 0 and ant2_preamble.size != 0:
                 if args.plot_frames:
                     test_plots(raw_preamble, ant2_preamble, corr_frame[:raw_start + 200])
                 trimmed_ant1_frames.append(raw_preamble)
                 trimmed_ant2_frames.append(ant2_preamble)
                 rssi_new = calculate_rssi(args, raw_preamble, True)
+                #SNR per Dr. Ball = (Received Signal + Received Noise in Signal)/(Received noise) - 1
                 rssi_snr = np.multiply(raw_preamble, np.conjugate(raw_preamble))
                 rssi_snr = np.mean(rssi_snr)
                 np_snr = np.multiply(noise_frame, np.conjugate(noise_frame))
                 np_snr = np.mean(np_snr)
 
                 rssi.append(rssi_new)
+
                 snr.append((rssi_snr/np_snr) - 1)
             else:
                 delete_list.append(index)
@@ -65,8 +75,10 @@ class SDR:
         self.ant1 = trimmed_ant1_frames
         self.ant2 = trimmed_ant2_frames
         self.rssi = rssi
+        #Converts SNR to dbm
         self.snr = 10*log10(np.mean(snr))
 
+#Trims frames to match the size of the smallest frame
 def maintain_min_shape(working_frames, min_size, frame_array):
     frame_size = len(working_frames[0])
     if min_size > frame_size:
@@ -76,6 +88,7 @@ def maintain_min_shape(working_frames, min_size, frame_array):
         working_frames = working_frames[:, :min_size]
     return working_frames, min_size, frame_array
 
+#Appends zeroes to frames to match the size of the largest frame
 def maintain_max_shape(working_frames, max_size, frame_array):
     frame_size = len(working_frames[0])
     if max_size < frame_size:
@@ -85,6 +98,7 @@ def maintain_max_shape(working_frames, max_size, frame_array):
         working_frames = [x + ([0] * (max_size - frame_size)) for x in working_frames]
     return working_frames, max_size, frame_array
 
+#Calculates RSSI as the mean of the imaginary^2 + real^2 IQ samples
 def calculate_rssi(args, raw_frame, dbm):
     rssi = sum([x.imag**2 + x.real**2 for x in raw_frame]) / raw_frame.size
     if dbm:
@@ -98,6 +112,7 @@ def calculate_rssi(args, raw_frame, dbm):
     else:
         return rssi
 
+#Returns cross-correlation of entire frame with known (in standards) LTF of IEEE802.11g frame
 def crossCor(frame):
     ltf = np.array(
         [complex(-0.0455, -1.0679), complex(0.3528, -0.9865), complex(0.8594, 0.7348), complex(0.1874, 0.2475),
@@ -120,6 +135,8 @@ def crossCor(frame):
     corr = abs(np.correlate(frame, ltf, mode='same')) / ([abs(x) for x in frame])
     return corr
 
+#Gives rough estimate of total number of frames sent based on sequence numbers
+#number of roll over (4096=>0) * 4096 + last sequence number sent
 def pool_seq(sdr_num):
     start_bool = [i > j for i, j in zip(sdr_num, sdr_num[1:])]
     startovers = start_bool.count(True)
@@ -127,7 +144,7 @@ def pool_seq(sdr_num):
     total_sent = startovers * 4096 + last_number
     return total_sent
 
-
+#Plots frames for display
 def test_plots(raw_frame, ant2_frame=[], corr_frame=[]):
     fig, ax = plt.subplots(4)
     fig.suptitle('CrossCorrelation, Antenna 1 Mag, Antenna 2 Mag, Freq Plots')
@@ -137,14 +154,16 @@ def test_plots(raw_frame, ant2_frame=[], corr_frame=[]):
     ax[3].plot(np.fft.fftshift(np.fft.fft(raw_frame)), 'g')
     plt.show()
 
+#trims the WiFi frame based on absolute value. If first samples > 0.015, assume interference and drop.
+#Else trim off first trim_len samples of frame (including transient) and return noise of frame
 def trim_wifi(args, raw_frame):
-    #0.025 is hand determined value of beginning of array. May need to retune
+    #0.015 is hand determined value of beginning of array. May need to retune
     abs_array = np.array([abs(x) for x in raw_frame])
     start_index = np.argmax(abs_array > 0.015)
-    start_index -= 15
+    start_index -= 20
     preamble = np.array([],np.complex64)
     noise_frame = np.array([],np.complex64)
-    if (start_index < args.trim_len + 15):
+    if (start_index < args.trim_len + 20):
         return start_index, preamble, []
     #20 sample buffer to ensure capture of transient
     for samp in range(args.trim_len):
@@ -153,6 +172,7 @@ def trim_wifi(args, raw_frame):
         noise_frame = np.append(noise_frame, raw_frame[samp])
     return start_index, preamble[1:len(preamble)-1], noise_frame
 
+#Makes CSV for Dr. Young's stats
 def writeCSV(args, csv_rows):
     fields = ['X-Coordinate', 'Y-Coordinate', 'Phone Label', 'SDR Label', 'Total Frames Sent', 'SINR']
     filename = args.base_path + "nij_collection_stats_part2.csv"
@@ -185,6 +205,8 @@ def wifi_main(args):
     sdr5_suffix = [sdr.replace("WiFiSDR", '')[:-5] for sdr in sdr5_files]
     if (sdr1_suffix != sdr2_suffix or sdr1_suffix != sdr3_suffix or sdr1_suffix != sdr5_suffix):
         raise(Exception("Number of files from each SDR not equal"))
+
+    #Creates hdf5 file and datasets needed
     out_file = h5py.File("WiFiClass1train.hdf5", 'w')
     total_ant1 = out_file.create_dataset('ant1Train', shape=(0,348), dtype=np.complex64, chunks=True, compression='lzf', maxshape=(None, None))
     total_ant2 = out_file.create_dataset('ant2Train', shape=(0,348), dtype=np.complex64, chunks=True, compression='lzf', maxshape=(None, None))
@@ -197,7 +219,9 @@ def wifi_main(args):
     total_num = out_file.create_dataset('numTrain', shape=(0,), dtype=np.uint16, chunks=True, compression='lzf', maxshape=(None,))
     csv_rows = []
     max_csi_size = 10240
+
     for sdr1_file, sdr2_file, sdr3_file, sdr5_file in zip(sdr1_files, sdr2_files, sdr3_files, sdr5_files):
+        #starts timer and loads numpy files onto disk
         start_time = timeit.default_timer()
         sdr1_np = np.load(join(args.base_path, sdr1_file), mmap_mode='r')
         sdr2_np = np.load(join(args.base_path, sdr2_file), mmap_mode='r')
@@ -206,18 +230,25 @@ def wifi_main(args):
 
         sdrs = [SDR(sdr1_np), SDR(sdr2_np), SDR(sdr3_np), SDR(sdr5_np)]
         for sdr in sdrs:
+            #Calculates total number of frames sent by phone during transmission time
             total_sent = pool_seq(sdr.num)
-            if sdr.ant1.shape[0] > 1500:
-                sdr.ant1 = sdr.ant1[:1500]
-                sdr.ant2 = sdr.ant2[:1500]
-                sdr.csi = sdr.csi[:1500]
-                sdr.dev = sdr.dev[:1500]
-                sdr.rx = sdr.rx[:1500]
-                sdr.loc = sdr.loc[:1500]
-                sdr.time = sdr.time[:1500]
-                sdr.num = sdr.num[:1500]
+            #Discards all frames over num_save
+            if sdr.ant1.shape[0] > args.num_save:
+                sdr.ant1 = sdr.ant1[:args.num_save]
+                sdr.ant2 = sdr.ant2[:args.num_save]
+                sdr.csi = sdr.csi[:args.num_save]
+                sdr.dev = sdr.dev[:args.num_save]
+                sdr.rx = sdr.rx[:args.num_save]
+                sdr.loc = sdr.loc[:args.num_save]
+                sdr.time = sdr.time[:args.num_save]
+                sdr.num = sdr.num[:args.num_save]
+
+            #Processes data and discards noisy frames
             sdr.process_frames(args)
+
             csv_rows.append({'X-Coordinate':sdr.loc[0][0], 'Y-Coordinate':sdr.loc[0][1], 'Phone Label':sdr.dev[0], 'SDR Label':sdr.rx[0], 'Total Frames Sent': total_sent, 'SINR': sdr.snr})
+
+            #Resizes hdf5 datasets and adds current samples to it
             total_ant1.resize((total_ant1.shape[0] + len(sdr.ant1)), axis=0)
             total_ant1[-len(sdr.ant1):] = sdr.ant1
             total_ant2.resize((total_ant2.shape[0] + len(sdr.ant2)), axis=0)
@@ -235,6 +266,8 @@ def wifi_main(args):
             total_num.resize((total_num.shape[0] + len(sdr.num)), axis=0)
             total_num[-len(sdr.num):] = sdr.num
             frame_size = len(sdr.csi[1])
+            #makes CSI frames match in size over dataset by appending zeroes
+            #Not needed for raw frames due to trimming
             if max_csi_size < frame_size:
                 total_csi.resize(frame_size, axis=1)
                 max_csi_size = frame_size
@@ -244,13 +277,13 @@ def wifi_main(args):
             total_csi[-len(sdr.csi):] = sdr.csi
         elapsed_time = timeit.default_timer() - start_time
         print("File " + sdr1_file[:-6] + " completed in " + str(elapsed_time) + " seconds")
-    
+
+    #write stats for dataset to csv file
     writeCSV(args, csv_rows)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Takes 5 files (file sink, file sink header, parse data, and '
-                                                 'CSI data and organizes them into a text file where each lline corresponds to a single frame')
+    parser = argparse.ArgumentParser(description='Takes Numpy files from WiFiRaw2Numpy.py and organizes them into a dataset. Matches the files between SDRs and calculates power')
     parser.add_argument('-base_path', action='store', default="/home/nij/GNU/RawData/", dest='base_path',
                         help='Path to all files')
     parser.add_argument('-p', action='store_true', default=False, dest='plot_frames',
@@ -259,7 +292,7 @@ if __name__ == '__main__':
                         help='The upper bound of how many frames will be saved to file')
     parser.add_argument('-d', action='store_true', default=False, dest='debug',
                         help='Debugger mode')
-    parser.add_argument('-tl', action='store', type=int, default=350, dest='trim_len',
+    parser.add_argument('-tl', action='store', type=int, default=355, dest='trim_len',
                         help='Number of samples to trim from beginning of frame (Only applicable to WiFi)')
     args = parser.parse_args()
 
