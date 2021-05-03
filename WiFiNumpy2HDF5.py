@@ -207,10 +207,11 @@ def wifi_main(args):
         raise(Exception("Number of files from each SDR not equal"))
 
     #Creates hdf5 file and datasets needed
+    max_csi_size = 10240
     out_file = h5py.File("WiFiClass1train.hdf5", 'w')
-    total_ant1 = out_file.create_dataset('ant1Train', shape=(0,348), dtype=np.complex64, chunks=True, compression='lzf', maxshape=(None, None))
-    total_ant2 = out_file.create_dataset('ant2Train', shape=(0,348), dtype=np.complex64, chunks=True, compression='lzf', maxshape=(None, None))
-    total_csi = out_file.create_dataset('csiTrain', shape=(0,10240), dtype=np.complex64, chunks=True, compression='lzf', maxshape=(None, None))
+    total_ant1 = out_file.create_dataset('ant1Train', shape=(0,args.trim_len-2), dtype=np.complex64, chunks=True, compression='lzf', maxshape=(None, None))
+    total_ant2 = out_file.create_dataset('ant2Train', shape=(0,args.trim_len-2), dtype=np.complex64, chunks=True, compression='lzf', maxshape=(None, None))
+    total_csi = out_file.create_dataset('csiTrain', shape=(0,max_csi_size), dtype=np.complex64, chunks=True, compression='lzf', maxshape=(None, None))
     total_rssi = out_file.create_dataset('powTrain', shape=(0,), dtype=np.float64, chunks=True, compression='lzf', maxshape=(None,))
     total_dev = out_file.create_dataset('dev_labels', shape=(0,), dtype=np.uint8, chunks=True, compression='lzf', maxshape=(None,))
     total_loc = out_file.create_dataset('loc_labels', shape=(0,2), dtype=np.float16, chunks=True, compression='lzf', maxshape=(None, 2))
@@ -218,7 +219,6 @@ def wifi_main(args):
     total_time = out_file.create_dataset('timeTrain', shape=(0,), dtype=np.float64, chunks=True, compression='lzf', maxshape=(None,))
     total_num = out_file.create_dataset('numTrain', shape=(0,), dtype=np.uint16, chunks=True, compression='lzf', maxshape=(None,))
     csv_rows = []
-    max_csi_size = 10240
 
     for sdr1_file, sdr2_file, sdr3_file, sdr5_file in zip(sdr1_files, sdr2_files, sdr3_files, sdr5_files):
         #starts timer and loads numpy files onto disk
